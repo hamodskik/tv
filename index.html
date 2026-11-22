@@ -167,11 +167,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .fact.wide{grid-column:1/-1}.fact.wide div{flex-wrap:nowrap}.fact.wide strong.mono{font-size:.95rem}
 .tone-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tone-row>span{font-size:.82rem;color:var(--muted);font-weight:600}
 .var-chip{font-family:var(--font-body);font-size:.8rem}
-.preview{white-space:pre-wrap;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6}
+.preview{unicode-bidi:plaintext;white-space:pre-wrap;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6}
 .copy{border:0;background:var(--surface-2);border-radius:7px;padding:3px 8px;font-size:.76rem;font-weight:600;cursor:pointer;color:var(--muted);flex:none}
 .sec{display:flex;flex-direction:column;gap:10px}
 .sec h4{margin:0;font-family:var(--font-display);font-weight:600;font-size:1rem}
-.msg{width:100%;min-height:170px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.9rem;resize:vertical;line-height:1.6}
+.msg{unicode-bidi:plaintext;width:100%;min-height:170px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.9rem;resize:vertical;line-height:1.6}
 .msg-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sent-note{font-size:.8rem;color:var(--ok);font-weight:600}
 .renew{display:flex;gap:6px;flex-wrap:wrap}
@@ -395,7 +395,8 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
         </div>
         <div class="sec"><h4>رسائل الواتساب</h4>
           <div class="grid2"><div class="field"><label for="s_tone">الأسلوب الافتراضي</label><select id="s_tone"></select></div>
-          <div class="field" style="justify-content:flex-end"><button class="btn" type="button" data-act="editTpl" data-tpl="activate">✏️ تعديل قوالب الرسائل</button></div></div></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="button" data-act="editTpl" data-tpl="activate">✏️ تعديل قوالب الرسائل</button></div></div>
+          <div><button class="btn ghost sm" type="button" data-act="tplRestoreAll" id="btnRestoreAll">↩️ استعادة كل القوالب الافتراضية</button></div></div>
         <div class="sec"><h4>أسعار الباقات</h4><div class="grid2" id="priceFields"></div>
           <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
         <div class="formerr" id="setErr" hidden></div>
@@ -478,7 +479,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
       <div class="formerr" id="te_err" hidden></div>
       <div class="form-foot">
         <button class="btn primary" type="button" id="te_save">حفظ التعديلات</button>
-        <button class="btn ghost" type="button" data-act="teReset">رجوع للنص الأصلي</button>
+        <button class="btn ghost" type="button" data-act="teReset">↩️ استعادة الافتراضي</button>
         <button class="btn ghost" type="button" data-act="teClose">إغلاق</button>
       </div>
     </div>
@@ -905,7 +906,9 @@ function renderDetail(force){
         ${c.phone?`<a class="btn wa" id="waLink" href="${esc(waUrl(c.phone,keepMsg??msg))}" target="_blank" rel="noopener" data-act="wa" data-id="${esc(c.id)}" data-tpl="${detailTpl}">افتح الواتساب</a>`:'<span class="hint">أضف رقم جوال عشان ترسل</span>'}
         <button class="btn" type="button" data-act="copyMsg">نسخ النص</button>
         ${nVar>1?`<button class="btn ghost sm" type="button" data-act="nextVar">🔀 صيغة ثانية (${(detailVar%nVar)+1}/${nVar})</button>`:''}
+        <button class="btn ghost sm" type="button" data-act="msgReset" title="يرجّع الرسالة لنص القالب لو عدلت فيها بيدك">↩️ النص الأصلي</button>
         <button class="btn ghost sm" type="button" data-act="editTpl">✏️ عدّل القالب</button>
+        ${canDelete&&hasOverride(detailTpl,tone)?`<button class="btn ghost sm" type="button" data-act="tplRestore" data-tpl="${detailTpl}" data-tone="${tone}">↩️ استعادة القالب الافتراضي</button>`:''}
         ${sentAt?`<span class="sent-note">✓ أُرسلت ${sentAt==='تم'?'':esc(nice(sentAt))}</span>`:''}
       </div>
     </div>
@@ -1036,7 +1039,9 @@ async function doRenew(){
   }catch(e){toast('ما قدرنا نجدد، جرّب مرة ثانية');if(btn)btn.disabled=false}
 }
 let pendingDelete=null;
-function askDelete(ids,text){pendingDelete=ids;$('#cfText').textContent=text;show('sheetConfirm');}
+let pendingAction=null;
+function askDelete(ids,text){pendingAction=null;pendingDelete=ids;$('#cfText').textContent=text;$('#cfYes').textContent='نعم، احذف';show('sheetConfirm');}
+function askConfirm(text,yes,fn){pendingDelete=null;pendingAction=fn;$('#cfText').textContent=text;$('#cfYes').textContent=yes;show('sheetConfirm');}
 async function doDelete(){
   const ids=pendingDelete||[];pendingDelete=null;$('#cfYes').disabled=true;
   try{for(const id of ids)await db.remove(id);closeAll();toast(ids.length>1?'تم حذف الأمثلة':'تم حذف الزبون');}
@@ -1062,6 +1067,10 @@ document.addEventListener('click',e=>{
     case 'tplPick':detailTpl=t.dataset.tpl;detailVar=0;renderDetail(true);break;
     case 'tonePick':detailTone=t.dataset.tone;detailVar=0;renderDetail(true);break;
     case 'nextVar':detailVar++;renderDetail(true);break;
+    case 'msgReset':renderDetail(true);toast('رجعت الرسالة لنص القالب');break;
+    case 'tplRestore':restoreTemplates([[t.dataset.tpl,t.dataset.tone]]);break;
+    case 'tplRestoreAll':{const n=countOverrides();if(!n){toast('كل القوالب على النص الافتراضي أصلاً ✓');break}
+      askConfirm(`بترجع ${n} قالب معدّل للنص الافتراضي. تعديلاتك عليها بتنمسح.`,'نعم، استعادة',()=>restoreTemplates(null));break}
     case 'editTpl':openTplEditor(t.dataset.tpl||detailTpl||'activate',detailTone||defaultTone(),openId);break;
     case 'teTpl':teSwitch(t.dataset.tpl,teTone);break;
     case 'teTone':teSwitch(teTpl,t.dataset.tone);break;
@@ -1090,7 +1099,7 @@ document.addEventListener('click',e=>{
     case 'clearEx':{const ids=customers.filter(c=>c.example).map(c=>c.id);askDelete(ids,`بنحذف ${ids.length} زبائن تجريبيين. زبائنك الحقيقيين ما يتأثرون.`);break}
   }
 });
-$('#cfYes').addEventListener('click',doDelete);
+$('#cfYes').addEventListener('click',async()=>{if(pendingAction){const fn=pendingAction;pendingAction=null;$('#cfYes').disabled=true;try{await fn()}finally{$('#cfYes').disabled=false}}else doDelete();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 document.addEventListener('input',e=>{
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
@@ -1127,6 +1136,7 @@ function openSettings(){
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
   for(const p of PKGS)$('#pr_'+p.id).value=priceOf(p.id)||'';
   $('#s_fee').value=settings.screenFee??35;
+  $('#btnRestoreAll').hidden=!canDelete;
   $('#s_tone').innerHTML=TONES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');$('#s_tone').value=defaultTone();$('#s_tone').disabled=!canDelete;
   $('#setErr').hidden=true;
   const ro=!canDelete;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;
@@ -1142,6 +1152,19 @@ $('#setForm').addEventListener('submit',async e=>{
   catch(ex){$('#setErr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#setErr').hidden=false}
   finally{$('#btnSetSave').disabled=false}
 });
+
+/* ---------- template restore ---------- */
+function hasOverride(id,tone){const v=settings.templates?.[id]?.[tone];return typeof v==='string'&&v.trim()!=='';}
+function countOverrides(){let n=0;for(const id of Object.keys(settings.templates||{}))for(const tn of Object.keys(settings.templates[id]||{}))if(hasOverride(id,tn))n++;return n;}
+async function restoreTemplates(pairs){
+  if(!db||!canDelete)return;
+  let templates={};
+  if(pairs){templates=JSON.parse(JSON.stringify(settings.templates||{}));for(const [id,tn] of pairs){if(templates[id]){delete templates[id][tn];if(!Object.keys(templates[id]).length)delete templates[id];}}}
+  try{const next={...settings,templates};await db.saveSettings(next);settings=next;lastDetailSig='';
+    if(!$('#sheetConfirm').hidden){if(openId){show('sheetDetail')}else closeAll();}
+    if(openId)renderDetail(true);syncResolved();toast(pairs?'رجع القالب الافتراضي ✓':'رجعت كل القوالب الافتراضية ✓');}
+  catch(e){toast('ما قدرنا نستعيد القوالب، جرّب مرة ثانية')}
+}
 
 /* ---------- template editor ---------- */
 let teTpl='activate',teTone='friendly',teReturn=null,teDrafts={};
@@ -1170,7 +1193,7 @@ function teInsert(v){
   ta.value=ta.value.slice(0,s)+v+ta.value.slice(e);ta.focus();ta.selectionStart=ta.selectionEnd=s+v.length;
   teDrafts[teKey(teTpl,teTone)]=ta.value;tePreview();
 }
-function teResetText(){const d=DEFAULT_TPLS[teTpl]?.[teTone]||'';$('#te_text').value=d;teDrafts[teKey(teTpl,teTone)]=d;tePreview();}
+function teResetText(){const d=DEFAULT_TPLS[teTpl]?.[teTone]||'';$('#te_text').value=d;teDrafts[teKey(teTpl,teTone)]=d;tePreview();toast('رجع النص الافتراضي. اضغط "حفظ التعديلات" عشان يثبت');}
 function openTplEditor(tplId,tone,returnId){teTpl=tplId;teTone=tone;teReturn=returnId||null;teDrafts={};show('sheetTpl');teRender();}
 function teCloseSheet(){const back=teReturn;teReturn=null;teDrafts={};if(back&&customers.some(c=>c.id===back)){openId=back;show('sheetDetail');renderDetail(true);}else closeAll();}
 $('#te_text').addEventListener('input',()=>{teDrafts[teKey(teTpl,teTone)]=$('#te_text').value;tePreview();});
