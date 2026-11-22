@@ -190,9 +190,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 <body>
 <div class="app" dir="rtl" lang="ar">
   <section class="connect" id="connect" hidden>
-    <div><h2>تسجيل الدخول</h2><p>اللوحة تقرأ زبائنك من Google Sheet الخاص فيك. أول مرة بس تحتاج تدخل الرابط وكلمة السر، وبعدها يتذكرها هالجهاز.</p></div>
+    <div><h2>تسجيل الدخول</h2><p id="connIntro">ادخل بإيميلك وكلمة السر اللي سويتها في Supabase. الجهاز يتذكرك بعد أول مرة.</p></div>
     <form class="form" id="connForm" novalidate>
-      <div class="field"><label for="c_url">رابط Apps Script</label><input id="c_url" class="ltr" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></div>
+      <div class="field"><label for="c_email">الإيميل</label><input id="c_email" type="email" class="ltr" autocomplete="username" inputmode="email"></div>
       <div class="field"><label for="c_pass">كلمة السر</label><input id="c_pass" type="password" class="ltr" autocomplete="current-password"></div>
       <div class="formerr" id="connErr" hidden></div>
       <div class="form-foot"><button class="btn primary" type="submit" id="btnConn">دخول</button></div>
@@ -299,7 +299,7 @@ button,input,select,textarea{font:inherit;color:inherit}
         <div class="sec"><h4>أسعار الباقات</h4><div class="grid2" id="priceFields"></div>
           <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
         <div class="formerr" id="setErr" hidden></div>
-        <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج من هالجهاز</button></div>
+        <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج</button></div>
       </form>
     </div>
   </div>
@@ -317,6 +317,8 @@ button,input,select,textarea{font:inherit;color:inherit}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <script>
 (function(){
 const $=s=>document.querySelector(s);
@@ -433,7 +435,7 @@ function tasksFor(c){
 }
 
 /* ---------- state ---------- */
-let db=null,canWrite=true,customers=[],loaded=false,loadTimer=null;
+let db=null,canWrite=true,canDelete=true,customers=[],loaded=false,loadTimer=null;
 let tab='tasks',filter='all',query='';
 let openId=null,detailTpl=null,detailTplFor=null,renewPkg=null,renewAmt='',lastDetailSig='';
 let editingId=null,endTouched=false;
@@ -510,7 +512,7 @@ function renderNotice(){
   const n=$('#notice');const ex=customers.filter(c=>c.example).length;
   if(window.__dbErr){n.className='notice err';n.textContent=window.__dbErr;n.hidden=false;return}
   if(!canWrite){n.className='notice';n.textContent='تقدر تشوف اللوحة بس، ما عندك صلاحية تعديل.';n.hidden=false;return}
-  if(ex&&canWrite){n.className='notice';n.innerHTML=`<span>فيه ${ex} زبائن <strong>تجريبيين</strong> عشان تشوف كيف تشتغل اللوحة. احذفهم أول ما تبدأ تضيف زبائنك.</span><button class="btn sm" type="button" data-act="clearEx">احذف الأمثلة</button>`;n.hidden=false;return}
+  if(ex&&canDelete){n.className='notice';n.innerHTML=`<span>فيه ${ex} زبائن <strong>تجريبيين</strong> عشان تشوف كيف تشتغل اللوحة. احذفهم أول ما تبدأ تضيف زبائنك.</span><button class="btn sm" type="button" data-act="clearEx">احذف الأمثلة</button>`;n.hidden=false;return}
   n.hidden=true;
 }
 function renderAll(){
@@ -570,7 +572,7 @@ function renderDetail(force){
       </div>`:''}
     </div>`:''}
     ${pays.length?`<div class="sec"><h4>سجل الدفعات</h4><div class="hist">${pays.slice().reverse().map(p=>`<div><span>${p.kind==='renew'?'تجديد':'اشتراك جديد'} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><strong class="num">${esc(String(p.amount??0))} ${esc(settings.currency||'')}</strong></div>`).join('')}</div></div>`:''}
-    ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button><button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button></div>`:''}
+    ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button>${canDelete?`<button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button>`:''}</div>`:''}
   `;
   detailTplFor=detailTpl;
 }
@@ -752,7 +754,7 @@ function openSettings(){
   for(const p of PKGS)$('#pr_'+p.id).value=priceOf(p.id)||'';
   $('#s_fee').value=settings.screenFee??35;
   $('#setErr').hidden=true;
-  const ro=!canWrite;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;
+  const ro=!canDelete;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;
   show('sheetSettings');
 }
 $('#setForm').addEventListener('submit',async e=>{
@@ -771,75 +773,99 @@ fillPkgSelect();renderAll();
 let lastDay=today();
 setInterval(()=>{if(today()!==lastDay){lastDay=today();renderAll();}},60000);
 
-/* ---------- Google Sheets connection ---------- */
-const CONN_KEY='tvdash.connection';
-let conn=null;try{conn=JSON.parse(localStorage.getItem(CONN_KEY)||'null')}catch(e){conn=null}
+/* ---------- Supabase connection ---------- */
+const CFG=window.TV_CONFIG||{};
+const sb=(window.supabase&&CFG.supabaseUrl&&CFG.supabaseAnonKey)?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true}}):null;
 function errText(ex,fallback){
-  if(ex?.code==='auth')return 'كلمة السر غلط';
-  if(ex?.code==='locked')return 'فيه محاولات دخول غلط كثيرة، الدخول موقوف 15 دقيقة';
-  if(ex?.code==='weak_password')return 'غيّر كلمة السر في كود Apps Script (10 خانات أو أكثر) وسوّ Deploy بنسخة جديدة';
-  if(ex?.code==='network')return 'ما فيه اتصال بالإنترنت أو الرابط غلط';
-  if(ex?.code==='conflict')return 'فيه تعديل أحدث على هالزبون من جهاز ثاني. حدّث الصفحة وجرّب مرة ثانية';
+  const m=String(ex?.message||'');
+  if(/Invalid login credentials/i.test(m))return 'الإيميل أو كلمة السر غلط';
+  if(/Email not confirmed/i.test(m))return 'الإيميل مو مفعّل. فعّله من Supabase أو من رسالة التفعيل';
+  if(/rate limit|too many/i.test(m))return 'محاولات كثيرة، استنى شوي وجرّب';
+  if(/row-level security|permission denied/i.test(m))return 'حسابك ما عنده صلاحية على هالعملية';
+  if(/Failed to fetch|NetworkError|network/i.test(m))return 'ما فيه اتصال بالإنترنت';
   return fallback;
 }
-async function call(action,payload){
-  let res;
-  try{res=await fetch(conn.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,pass:conn.pass,...payload}),redirect:'follow'});}
-  catch(e){throw {code:'network'}}
-  let j;try{j=await res.json()}catch(e){throw {code:'network'}}
-  if(!j.ok)throw {code:j.error||'error',message:j.message};
-  return j;
-}
+const COLMAP=[['id','id'],['name','name'],['phone','phone'],['mac','mac'],['deviceKey','device_key'],['screen','screen'],['pkg','pkg'],
+  ['startDate','start_date'],['endDate','end_date'],['notes','notes'],['referredBy','referred_by'],['qualityDone','quality_done'],
+  ['sent','sent'],['payments','payments'],['example','example']];
+function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
+function toRow(c){const r={};for(const [k,col] of COLMAP){if(c[k]!==undefined)r[col]=c[k];}
+  for(const k of ['phone','mac','device_key','notes','referred_by','screen'])if(r[k]==null)r[k]='';return r;}
 const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
 function deepMerge(a,b){const o={...a};for(const k of Object.keys(b)){o[k]=isObj(b[k])&&isObj(a[k])?deepMerge(a[k],b[k]):b[k]}return o}
-let loading=false;
+const must=({data,error})=>{if(error)throw error;return data;};
+const mustRows=res=>{const d=must(res);if(Array.isArray(d)&&!d.length)throw new Error('permission denied');return d;};
+let loading=false,channel=null;
 const store={
   async load(manual){
     if(loading)return;loading=true;if(manual)toast('جاري التحديث…');
     try{
-      const j=await call('load',{});
-      customers=(j.customers||[]).filter(c=>c.endDate);
-      if(j.settings)settings={...DEFAULTS,...j.settings,prices:{...DEFAULTS.prices,...(j.settings.prices||{})}};
+      const rows=must(await sb.from('customers').select('*').order('end_date',{ascending:true}).limit(5000));
+      customers=rows.map(fromRow);
+      const st=must(await sb.from('settings').select('data').eq('id',1).maybeSingle());
+      if(st?.data)settings={...DEFAULTS,...st.data,prices:{...DEFAULTS.prices,...(st.data.prices||{})}};
       loaded=true;window.__dbErr=null;renderAll();if(manual)toast('تم التحديث');
-    }catch(ex){
-      if(ex.code==='auth'){logout('كلمة السر تغيرت، ادخل من جديد');return}
-      window.__dbErr=errText(ex,'ما قدرنا نجيب البيانات من الشيت');loaded=true;renderAll();
-    }finally{loading=false}
+    }catch(ex){window.__dbErr=errText(ex,'ما قدرنا نجيب البيانات، جرّب "تحديث"');loaded=true;renderAll();}
+    finally{loading=false}
   },
   async update(id,patch){
-    const prev=customers.find(c=>c.id===id);if(!prev)throw {code:'missing'};
+    const prev=customers.find(c=>c.id===id);if(!prev)throw new Error('missing');
     const next=deepMerge(prev,patch);
     customers=customers.map(c=>c.id===id?next:c);renderAll();
-    try{await call('save',{customer:next})}
+    try{const row=toRow(next);delete row.id;mustRows(await sb.from('customers').update(row).eq('id',id).select('id'));}
     catch(ex){customers=customers.map(c=>c.id===id?prev:c);renderAll();throw ex}
   },
   async add(doc){
-    const id='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    const c={id,...doc};await call('save',{customer:c});
-    customers=[...customers,c];renderAll();return id;
+    const id=(crypto.randomUUID?crypto.randomUUID():null);
+    const row=toRow({...doc,id:id||undefined});
+    const saved=must(await sb.from('customers').insert(row).select('*').single());
+    const c=fromRow(saved);
+    if(!customers.some(x=>x.id===c.id))customers=[...customers,c];renderAll();return c.id;
   },
-  async remove(id){await call('delete',{id});customers=customers.filter(c=>c.id!==id);renderAll();},
-  async saveSettings(s){await call('saveSettings',{settings:s});}
+  async remove(id){mustRows(await sb.from('customers').delete().eq('id',id).select('id'));customers=customers.filter(c=>c.id!==id);renderAll();},
+  async saveSettings(s){mustRows(await sb.from('settings').upsert({id:1,data:s}).select('id'));}
 };
+function subscribe(){
+  if(channel)return;
+  channel=sb.channel('customers-live').on('postgres_changes',{event:'*',schema:'public',table:'customers'},p=>{
+    if(p.eventType==='DELETE'){customers=customers.filter(c=>c.id!==p.old.id);}
+    else{const c=fromRow(p.new);const i=customers.findIndex(x=>x.id===c.id);customers=i<0?[...customers,c]:customers.map(x=>x.id===c.id?c:x);}
+    renderAll();
+  }).subscribe();
+}
 function showApp(on){$('#connect').hidden=on;$('#main').hidden=!on;}
-function logout(msg){
-  try{localStorage.removeItem(CONN_KEY)}catch(e){}
-  conn=null;db=null;customers=[];loaded=false;closeAll();showApp(false);
+async function startSession(){
+  db=store;showApp(true);
+  try{
+    const [{data:staff},{data:owner}]=await Promise.all([sb.rpc('is_staff'),sb.rpc('is_owner')]);
+    canWrite=!!staff;canDelete=!!owner;
+    if(!staff)window.__dbErr='حسابك مسجل بس مو مضاف كمالك أو موظف. شغّل خطوة "أضف نفسك كمالك" من دليل التجهيز.';
+  }catch(e){}
+  await store.load();subscribe();
+}
+async function logout(msg){
+  try{await sb?.auth.signOut()}catch(e){}
+  if(channel){try{sb.removeChannel(channel)}catch(e){}channel=null}
+  db=null;customers=[];loaded=false;window.__dbErr=null;closeAll();showApp(false);
   $('#c_pass').value='';const e=$('#connErr');e.hidden=!msg;e.textContent=msg||'';
 }
 $('#connForm').addEventListener('submit',async e=>{
   e.preventDefault();const err=$('#connErr');err.hidden=true;
-  const url=$('#c_url').value.trim(),pass=$('#c_pass').value;
-  if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(url)){err.textContent='الرابط لازم يبدأ بـ https://script.google.com/macros/s/ وينتهي بـ /exec';err.hidden=false;return}
-  if(!pass){err.textContent='اكتب كلمة السر';err.hidden=false;return}
-  conn={url,pass};$('#btnConn').disabled=true;
-  try{await call('ping',{});try{localStorage.setItem(CONN_KEY,JSON.stringify(conn))}catch(_){} db=store;showApp(true);await store.load();}
-  catch(ex){conn=null;err.textContent=errText(ex,'ما قدرنا نتصل، تأكد من الرابط');err.hidden=false}
+  if(!sb){err.textContent='اللوحة مو مربوطة بـ Supabase للحين (ملف config.js فاضي)';err.hidden=false;return}
+  const email=$('#c_email').value.trim(),pass=$('#c_pass').value;
+  if(!email||!pass){err.textContent='اكتب الإيميل وكلمة السر';err.hidden=false;return}
+  $('#btnConn').disabled=true;
+  try{must(await sb.auth.signInWithPassword({email,password:pass}));await startSession();}
+  catch(ex){err.textContent=errText(ex,'ما قدرنا ندخل، جرّب مرة ثانية');err.hidden=false}
   finally{$('#btnConn').disabled=false}
 });
-if(conn){db=store;showApp(true);store.load();}else{showApp(false);if(conn?.url)$('#c_url').value=conn.url;}
+(async()=>{
+  if(!sb){showApp(false);$('#connIntro').textContent='اللوحة مو مربوطة بـ Supabase للحين. حط رابط المشروع والمفتاح في ملف config.js.';return}
+  const {data}=await sb.auth.getSession();
+  if(data?.session)startSession();else showApp(false);
+  sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT'&&db)logout();});
+})();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&db&&!openId&&$('#sheetForm').hidden)store.load();});
-setInterval(()=>{if(db&&document.visibilityState==='visible'&&!openId&&$('#sheetForm').hidden)store.load();},180000);
 })();
 </script>
 </body>
