@@ -48,8 +48,19 @@ function doPost(e) {
   } catch (err) {
     return out_({ ok: false, error: 'bad_request' });
   }
+  // يرفض الشغل إذا كلمة السر لسا الافتراضية (مكشوفة في GitHub) أو قصيرة
+  if (PASSWORD === 'غيّر-كلمة-السر-هنا' || PASSWORD.length < 10) {
+    return out_({ ok: false, error: 'weak_password' });
+  }
+  // قفل مؤقت: بعد 8 محاولات غلط خلال 15 دقيقة يوقف الدخول 15 دقيقة
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('fails') || 0);
+  if (fails >= 8) {
+    return out_({ ok: false, error: 'locked' });
+  }
   if (!req || req.pass !== PASSWORD) {
-    Utilities.sleep(800); // يبطّئ محاولات تخمين كلمة السر
+    cache.put('fails', String(fails + 1), 900);
+    Utilities.sleep(1500); // يبطّئ محاولات تخمين كلمة السر
     return out_({ ok: false, error: 'auth' });
   }
   const lock = LockService.getScriptLock();

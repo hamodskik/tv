@@ -776,6 +776,8 @@ const CONN_KEY='tvdash.connection';
 let conn=null;try{conn=JSON.parse(localStorage.getItem(CONN_KEY)||'null')}catch(e){conn=null}
 function errText(ex,fallback){
   if(ex?.code==='auth')return 'كلمة السر غلط';
+  if(ex?.code==='locked')return 'فيه محاولات دخول غلط كثيرة، الدخول موقوف 15 دقيقة';
+  if(ex?.code==='weak_password')return 'غيّر كلمة السر في كود Apps Script (10 خانات أو أكثر) وسوّ Deploy بنسخة جديدة';
   if(ex?.code==='network')return 'ما فيه اتصال بالإنترنت أو الرابط غلط';
   if(ex?.code==='conflict')return 'فيه تعديل أحدث على هالزبون من جهاز ثاني. حدّث الصفحة وجرّب مرة ثانية';
   return fallback;
