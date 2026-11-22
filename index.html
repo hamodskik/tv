@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#2A3EC0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="محمد تيفي">
+<title>زبائن عالم محمد تيفي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@500;600;700&display=swap">
+<style>
+/* Layout: one operating column (phone first). Summary tiles → tabs (today's tasks / all customers) → rows. Sheets slide up for add, detail, settings. */
+:root{
+  --bg:#F2F4F9; --surface:#FFFFFF; --surface-2:#EAEDF5; --line:#D8DDE9; --fg:#131A2D; --muted:#5A6380;
+  --accent:#2A3EC0; --accent-fg:#FFFFFF; --accent-soft:#E3E7FF;
+  --ok:#11764A; --ok-soft:#DBF2E6; --warn:#8F6300; --warn-soft:#FAEFCF; --hot:#AE4D0A; --hot-soft:#FCE4D1;
+  --bad:#B01F33; --bad-soft:#FADDE1; --off:#5A6380; --off-soft:#E6E9F0; --wa:#0F8445; --wa-fg:#FFFFFF;
+  --scrim:rgba(14,18,34,.42); --shadow:0 18px 50px rgba(19,26,45,.18);
+  --font-display:"Readex Pro","IBM Plex Sans Arabic",Tahoma,sans-serif;
+  --font-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1020; --surface:#141A2D; --surface-2:#1B2238; --line:#29324E; --fg:#E7EBF7; --muted:#97A0BB;
+  --accent:#8F9CFF; --accent-fg:#0C1020; --accent-soft:#222B55;
+  --ok:#4FD39A; --ok-soft:#113024; --warn:#F0C04C; --warn-soft:#372D0F; --hot:#FF9A57; --hot-soft:#3B2313;
+  --bad:#FF7B89; --bad-soft:#3B1720; --off:#97A0BB; --off-soft:#21283E; --wa:#35C97A; --wa-fg:#06210F;
+  --scrim:rgba(0,0,0,.6); --shadow:0 18px 50px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1020; --surface:#141A2D; --surface-2:#1B2238; --line:#29324E; --fg:#E7EBF7; --muted:#97A0BB;
+  --accent:#8F9CFF; --accent-fg:#0C1020; --accent-soft:#222B55;
+  --ok:#4FD39A; --ok-soft:#113024; --warn:#F0C04C; --warn-soft:#372D0F; --hot:#FF9A57; --hot-soft:#3B2313;
+  --bad:#FF7B89; --bad-soft:#3B1720; --off:#97A0BB; --off-soft:#21283E; --wa:#35C97A; --wa-fg:#06210F;
+  --scrim:rgba(0,0,0,.6); --shadow:0 18px 50px rgba(0,0,0,.5); color-scheme:dark}
+
+*{box-sizing:border-box}
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;-webkit-text-size-adjust:100%}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.55}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{max-width:1040px;margin:0 auto;padding-block:20px 110px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.mono{font-family:var(--font-mono);direction:ltr;unicode-bidi:isolate;letter-spacing:.02em}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{font-family:var(--font-display);font-weight:700;font-size:1.45rem;margin:0;line-height:1.2;text-wrap:balance}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.86rem}
+.top-actions{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:600;font-size:.9rem;cursor:pointer;text-decoration:none;color:var(--fg);white-space:nowrap;min-height:40px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.wa{background:var(--wa);color:var(--wa-fg);border-color:var(--wa)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft);background:transparent}
+.btn.danger.solid{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn.sm{padding:6px 10px;min-height:34px;font-size:.84rem}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn svg{width:17px;height:17px;flex:none}
+
+.notice{background:var(--accent-soft);border-radius:var(--r);padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.92rem}
+.notice.err{background:var(--bad-soft);color:var(--bad)}
+
+/* KPI tiles */
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.kpi{text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 12px 10px;cursor:pointer;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden}
+.kpi:hover{border-color:var(--accent)}
+.kpi .lbl{font-size:.78rem;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.kpi .val{font-family:var(--font-display);font-size:1.7rem;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .val small{font-size:.8rem;font-weight:500;color:var(--muted);margin-inline-start:4px}
+.kpi[data-tone="bad"] .val{color:var(--bad)} .kpi[data-tone="hot"] .val{color:var(--hot)} .kpi[data-tone="warn"] .val{color:var(--warn)}
+.kpi[data-tone="ok"] .val{color:var(--ok)} .kpi[data-tone="off"] .val{color:var(--off)}
+.kpi.money{cursor:default}.kpi.money:hover{border-color:var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.kpi[data-tone="bad"] .dot{color:var(--bad)}.kpi[data-tone="hot"] .dot{color:var(--hot)}.kpi[data-tone="warn"] .dot{color:var(--warn)}.kpi[data-tone="ok"] .dot{color:var(--ok)}.kpi[data-tone="off"] .dot{color:var(--off)}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi .val{font-size:1.45rem}}
+
+/* tabs */
+.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:12px;width:fit-content;max-width:100%}
+.tab{border:0;background:transparent;padding:8px 16px;border-radius:9px;font-weight:600;cursor:pointer;color:var(--muted);display:flex;gap:8px;align-items:center}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.count{background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:0 8px;font-size:.78rem;font-variant-numeric:tabular-nums}
+
+/* groups & rows */
+.group{display:flex;flex-direction:column;gap:8px}
+.group h2{font-family:var(--font-display);font-size:.95rem;font-weight:600;margin:6px 0 0;color:var(--muted);display:flex;gap:8px;align-items:center}
+.rows{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px 12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row-main{border:0;background:transparent;text-align:start;cursor:pointer;padding:0;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row-main .nm{font-weight:600;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-main .meta{color:var(--muted);font-size:.82rem;display:flex;gap:10px;flex-wrap:wrap}
+.row-acts{display:flex;gap:6px}
+@media (max-width:560px){.row{grid-template-columns:minmax(0,1fr) auto}.row-acts{grid-column:1/-1;justify-content:flex-start}}
+
+/* status pill with signal bars */
+.pill{display:inline-flex;align-items:center;gap:7px;border-radius:99px;padding:3px 10px 3px 9px;font-size:.8rem;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill[data-tone="ok"]{background:var(--ok-soft);color:var(--ok)}.pill[data-tone="warn"]{background:var(--warn-soft);color:var(--warn)}
+.pill[data-tone="hot"]{background:var(--hot-soft);color:var(--hot)}.pill[data-tone="bad"]{background:var(--bad-soft);color:var(--bad)}
+.pill[data-tone="off"]{background:var(--off-soft);color:var(--off)}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:11px;direction:ltr}
+.bars i{width:3px;background:currentColor;opacity:.25;border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8px}.bars i:nth-child(4){height:11px}
+.bars i.on{opacity:1}
+.tag{display:inline-block;font-size:.74rem;font-weight:600;padding:1px 8px;border-radius:6px;background:var(--surface-2);color:var(--muted)}
+.tag.ex{background:var(--warn-soft);color:var(--warn)}
+
+/* list tools */
+.tools{display:flex;flex-direction:column;gap:10px}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 12px}
+.search input{border:0;background:transparent;padding:10px 0;width:100%;outline:none}
+.search svg{width:18px;height:18px;color:var(--muted);flex:none}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 12px;font-size:.84rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px 18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty strong{color:var(--fg);font-family:var(--font-display);font-weight:600;font-size:1.05rem}
+
+.fab{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:calc(18px + env(safe-area-inset-left,0px));z-index:20;box-shadow:var(--shadow);padding:12px 20px;border-radius:14px;font-size:1rem}
+
+/* sheets */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:580px;max-height:92dvh;overflow:auto;border-radius:18px 18px 0 0;box-shadow:var(--shadow);padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+@media (min-width:700px){.scrim{align-items:center;padding:24px}.sheet{border-radius:18px;padding:22px 24px}}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.sheet-head h3{font-family:var(--font-display);font-weight:600;font-size:1.2rem;margin:0;text-wrap:balance}
+.x{border:0;background:var(--surface-2);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:1.2rem;line-height:1;flex:none}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+
+/* form */
+.form{display:flex;flex-direction:column;gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.grid2{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:.84rem;font-weight:600;color:var(--muted)}
+.field label b{color:var(--bad);font-weight:600}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+.field textarea{resize:vertical;min-height:70px}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.field .hint{font-size:.78rem;color:var(--muted)}
+.field .hint.err{color:var(--bad)} .field .hint.warn{color:var(--hot)}
+.field input.ltr{direction:ltr;text-align:right}
+.paste{background:var(--accent-soft);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
+.paste p{margin:0;font-size:.84rem}
+.paste textarea{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:56px;resize:vertical;width:100%}
+.endbox{background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:.9rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.form-foot{display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap}
+.formerr{color:var(--bad);font-size:.88rem;font-weight:600}
+
+/* detail */
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.fact{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.fact span{font-size:.76rem;color:var(--muted);font-weight:600;letter-spacing:.01em}
+.fact div{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.fact strong{font-weight:600;overflow-wrap:anywhere}
+.fact div{flex-wrap:wrap}.fact strong.mono{font-size:.86rem;white-space:nowrap}
+.copy{border:0;background:var(--surface-2);border-radius:7px;padding:3px 8px;font-size:.76rem;font-weight:600;cursor:pointer;color:var(--muted);flex:none}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h4{margin:0;font-family:var(--font-display);font-weight:600;font-size:1rem}
+.msg{width:100%;min-height:170px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.9rem;resize:vertical;line-height:1.6}
+.msg-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sent-note{font-size:.8rem;color:var(--ok);font-weight:600}
+.renew{display:flex;gap:6px;flex-wrap:wrap}
+.renew-box{background:var(--surface-2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px}
+.renew-box .line{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.renew-box .field{flex:1 1 140px}
+.hist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.hist div{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:.88rem}
+.hist div:first-child{border-top:0}
+.hist em{font-style:normal;color:var(--muted)}
+.foot-acts{display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
+.notes{background:var(--surface-2);border-radius:10px;padding:10px 12px;white-space:pre-wrap;font-size:.9rem}
+
+.connect{max-width:460px;margin:8vh auto 0;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow)}
+.connect h2{font-family:var(--font-display);font-weight:600;font-size:1.3rem;margin:0}
+.connect p{margin:0;color:var(--muted);font-size:.9rem}
+.toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:12px;z-index:60;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);font-weight:600;font-size:.9rem;max-width:calc(100% - 32px)}
+.toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700}
+</style>
+
+</head>
+<body>
+<div class="app" dir="rtl" lang="ar">
+  <section class="connect" id="connect" hidden>
+    <div><h2>تسجيل الدخول</h2><p>اللوحة تقرأ زبائنك من Google Sheet الخاص فيك. أول مرة بس تحتاج تدخل الرابط وكلمة السر، وبعدها يتذكرها هالجهاز.</p></div>
+    <form class="form" id="connForm" novalidate>
+      <div class="field"><label for="c_url">رابط Apps Script</label><input id="c_url" class="ltr" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></div>
+      <div class="field"><label for="c_pass">كلمة السر</label><input id="c_pass" type="password" class="ltr" autocomplete="current-password"></div>
+      <div class="formerr" id="connErr" hidden></div>
+      <div class="form-foot"><button class="btn primary" type="submit" id="btnConn">دخول</button></div>
+    </form>
+  </section>
+  <div id="main" hidden style="display:contents">
+  <header class="top" id="topBar">
+    <div class="brand">
+      <h1 id="brandName">عالم محمد تيفي</h1>
+      <p id="brandSub">لوحة الزبائن · سيرفر فولتشر · IBO Player</p>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" type="button" data-act="refresh" id="btnRefresh" title="تحديث البيانات">تحديث</button>
+      <button class="btn ghost" type="button" data-act="settings" id="btnSettings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        الإعدادات
+      </button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <section class="kpis" id="kpis" aria-label="ملخص الاشتراكات"></section>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabTasks" data-act="tab" data-tab="tasks" aria-selected="true">مهام اليوم <span class="count" id="cntTasks">0</span></button>
+    <button class="tab" role="tab" id="tabList" data-act="tab" data-tab="list" aria-selected="false">كل الزبائن <span class="count" id="cntList">0</span></button>
+  </div>
+
+  <section id="viewTasks" class="group" aria-live="polite"></section>
+
+  <section id="viewList" class="group" hidden>
+    <div class="tools">
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="ابحث بالاسم أو الجوال أو آخر أرقام الـ MAC" autocomplete="off">
+      </label>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div id="listBody"></div>
+  </section>
+
+  <button class="btn primary fab" type="button" data-act="add" id="fab">+ زبون جديد</button>
+
+  <!-- add / edit -->
+  <div class="scrim" id="sheetForm" hidden data-scrim>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+      <div class="sheet-head"><h3 id="formTitle">زبون جديد</h3><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
+      <form class="form" id="custForm" novalidate>
+        <div class="paste" id="pasteBox">
+          <p><strong>اختصار:</strong> الصق رسالة الزبون أو صورة بياناته المكتوبة هنا، وبنطلع منها الجوال والـ MAC والـ Device Key تلقائياً.</p>
+          <textarea id="f_paste" placeholder="مثال: Mac: 00:1A:79:AB:CD:EF  Key: 123456  جوالي 0551234567"></textarea>
+        </div>
+        <div class="field"><label for="f_name">اسم الزبون <b>*</b></label><input id="f_name" autocomplete="off" placeholder="أبو فهد"></div>
+        <div class="grid2">
+          <div class="field"><label for="f_phone">رقم الجوال <b>*</b></label><input id="f_phone" class="ltr" inputmode="tel" autocomplete="off" placeholder="05xxxxxxxx"><span class="hint" id="h_phone">يتحول تلقائياً للصيغة الدولية</span></div>
+          <div class="field"><label for="f_ref">مين أحاله؟ (اختياري)</label><input id="f_ref" autocomplete="off" placeholder="اسم الزبون اللي جابه"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="f_mac">MAC Address</label><input id="f_mac" class="ltr mono" autocomplete="off" placeholder="00:1A:79:XX:XX:XX"><span class="hint" id="h_mac"></span></div>
+          <div class="field"><label for="f_key">Device Key</label><input id="f_key" class="ltr mono" inputmode="numeric" autocomplete="off" placeholder="123456"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="f_screen">نوع الشاشة</label><select id="f_screen"></select></div>
+          <div class="field"><label for="f_pkg">الباقة</label><select id="f_pkg"></select></div>
+        </div>
+        <div class="grid2">
+          <div class="field" id="amountField"><label for="f_amount">المبلغ المدفوع</label><input id="f_amount" class="ltr num" inputmode="decimal" autocomplete="off"><span class="hint" id="h_amount"></span></div>
+          <div class="field"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="f_start">تاريخ التفعيل</label><input id="f_start" type="date"></div>
+          <div class="field"><label for="f_end">تاريخ الانتهاء</label><input id="f_end" type="date"><span class="hint" id="h_end">يتحسب تلقائياً، وتقدر تعدله لزبون قديم</span></div>
+        </div>
+        <div class="field"><label for="f_notes">ملاحظات</label><textarea id="f_notes" placeholder="مثلاً: عنده شاشتين، يتابع الدوري الإنجليزي"></textarea></div>
+        <div class="formerr" id="formErr" hidden></div>
+        <div class="form-foot">
+          <button class="btn primary" type="submit" id="btnSave">حفظ الزبون</button>
+          <button class="btn ghost" type="button" data-act="close">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- detail -->
+  <div class="scrim" id="sheetDetail" hidden data-scrim>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="detTitle" id="detailBody"></div>
+  </div>
+
+  <!-- settings -->
+  <div class="scrim" id="sheetSettings" hidden data-scrim>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+      <div class="sheet-head"><h3 id="setTitle">الإعدادات</h3><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
+      <form class="form" id="setForm" novalidate>
+        <div class="grid2">
+          <div class="field"><label for="s_store">اسم المتجر</label><input id="s_store"></div>
+          <div class="field"><label for="s_server">اسم السيرفر</label><input id="s_server"></div>
+        </div>
+        <div class="field"><label for="s_pay">رابط الدفع (يظهر في رسائل التذكير)</label><input id="s_pay" class="ltr" placeholder="https://..."></div>
+        <div class="grid2">
+          <div class="field"><label for="s_cc">مفتاح الدولة الافتراضي</label><input id="s_cc" class="ltr num" inputmode="numeric" placeholder="966"></div>
+          <div class="field"><label for="s_cur">العملة</label><input id="s_cur" placeholder="ر.س"></div>
+        </div>
+        <div class="sec"><h4>أسعار الباقات</h4><div class="grid2" id="priceFields"></div>
+          <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
+        <div class="formerr" id="setErr" hidden></div>
+        <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج من هالجهاز</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- confirm -->
+  <div class="scrim" id="sheetConfirm" hidden data-scrim>
+    <div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle">
+      <div class="sheet-head"><h3 id="cfTitle">تأكيد</h3></div>
+      <p id="cfText" style="margin:0"></p>
+      <div class="form-foot"><button class="btn danger solid" type="button" id="cfYes">نعم، احذف</button><button class="btn ghost" type="button" data-act="close">إلغاء</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden role="status"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
+
+/* ---------- packages & settings ---------- */
+const PKGS=[
+  {id:'trial',label:'تجربة 24 ساعة',days:1},
+  {id:'1m',label:'شهر',months:1},
+  {id:'3m',label:'3 شهور',months:3},
+  {id:'6m',label:'6 شهور',months:6},
+  {id:'12m',label:'سنة',months:12}
+];
+const SCREENS=[{id:'android',label:'أندرويد / TV Box'},{id:'lg',label:'شاشة LG'},{id:'samsung',label:'شاشة سامسونج'},{id:'other',label:'جهاز ثاني'}];
+const screenLabel=id=>(SCREENS.find(s=>s.id===id)||{label:'—'}).label;
+const isPaidScreen=id=>id==='lg'||id==='samsung';
+const pkgLabel=id=>(PKGS.find(p=>p.id===id)||{label:id||'—'}).label;
+const DEFAULTS={store:'عالم محمد تيفي',server:'سيرفر فولتشر',payLink:'',cc:'966',currency:'ر.س',screenFee:35,prices:{trial:0,'1m':0,'3m':0,'6m':0,'12m':0}};
+let settings=JSON.parse(JSON.stringify(DEFAULTS));
+
+/* ---------- dates ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const fmtD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseD=s=>{const [y,m,d]=String(s||'').split('-').map(Number);return new Date(y||1970,(m||1)-1,d||1);};
+const today=()=>fmtD(new Date());
+const diffDays=(a,b)=>Math.round((parseD(b)-parseD(a))/864e5);
+function addPkg(s,pid){
+  const p=PKGS.find(x=>x.id===pid)||PKGS[1];const d=parseD(s);
+  if(p.days){d.setDate(d.getDate()+p.days);return fmtD(d);}
+  const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+p.months);
+  const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return fmtD(d);
+}
+let dtf;try{dtf=new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});}catch(e){dtf=null}
+const nice=s=>{if(!s)return '—';try{return dtf?dtf.format(parseD(s)):s}catch(e){return s}};
+const daysWord=n=>n===1?'يوم واحد':n===2?'يومين':n<=10?`${n} أيام`:`${n} يوم`;
+const daysLeft=c=>diffDays(today(),c.endDate);
+function tone(d){return d<0?'off':d<=1?'bad':d<=3?'hot':d<=7?'warn':'ok'}
+function daysText(d){if(d<0)return `انتهى قبل ${daysWord(-d)}`;if(d===0)return 'ينتهي اليوم';if(d===1)return 'ينتهي بكرة';return `باقي ${daysWord(d)}`;}
+function pill(d){const t=tone(d);const on={ok:4,warn:3,hot:2,bad:1,off:0}[t];
+  return `<span class="pill" data-tone="${t}"><span class="bars" aria-hidden="true">${[1,2,3,4].map(i=>`<i class="${i<=on?'on':''}"></i>`).join('')}</span>${esc(daysText(d))}</span>`;}
+
+/* ---------- phone / mac ---------- */
+function normPhone(raw){
+  let s=toLatin(raw).replace(/[^\d+]/g,'');if(!s)return '';
+  const cc=String(settings.cc||'966').replace(/\D/g,'');
+  if(s.startsWith('+'))s=s.slice(1);else if(s.startsWith('00'))s=s.slice(2);
+  else if(s.startsWith('0'))s=cc+s.slice(1);else if(s.length<=9)s=cc+s;
+  return s.replace(/\D/g,'');
+}
+const prettyPhone=p=>p?'+'+p:'—';
+function fmtMac(raw){const h=toLatin(raw).replace(/[^0-9a-fA-F]/g,'').toUpperCase().slice(0,12);return h.match(/.{1,2}/g)?.join(':')||'';}
+const macOk=m=>/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(m);
+function parseMsg(t){
+  t=toLatin(t);const out={};
+  const mac=t.match(/([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}/);if(mac)out.mac=fmtMac(mac[0]);
+  const key=t.match(/(?:device\s*key|key|كي|المفتاح|مفتاح)[^\d]{0,12}(\d{4,10})/i);if(key)out.deviceKey=key[1];
+  const ph=t.match(/(?:\+|00)?9665\d{8}|05\d{8}/);if(ph)out.phone=ph[0];
+  return out;
+}
+
+/* ---------- message templates ---------- */
+const TPLS=[
+  {id:'activate',label:'رسالة التفعيل'},
+  {id:'d7',label:'تذكير أسبوع'},
+  {id:'d3',label:'تذكير 3 أيام'},
+  {id:'d1',label:'تذكير يوم'},
+  {id:'expired',label:'انتهى الاشتراك'},
+  {id:'quality',label:'فحص الجودة'},
+  {id:'renewed',label:'تم التجديد'},
+  {id:'trialEnd',label:'نهاية التجربة'}
+];
+function tpl(id,c){
+  const s=settings,nm=c.name||'',mac=c.mac||'—',end=nice(c.endDate);
+  const pay=s.payLink?` أو أكمل الطلب عبر الرابط: ${s.payLink}`:'';
+  switch(id){
+    case 'activate':return `✨ *أهلاً بك في ${s.store} (${s.server})* ✨\nتم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر تطبيق *IBO Player* 🟢\n\n*الباقة:* ${s.server} | ${pkgLabel(c.pkg)}\n*الجهاز (MAC):* ${mac}\n*ينتهي في:* ${end}\n*الحالة:* مكتمل عن بُعد ✅\n\n*طريقة التشغيل:* أغلق تطبيق IBO Player وأعد فتحه وستعمل القنوات فوراً.`;
+    case 'd7':return `🔔 *إشعار | ${s.store}*\nأهلاً *${nm}*، باقي أسبوع تقريباً على انتهاء اشتراكك على *IBO Player* (ينتهي في ${end}).\nبيانات جهازك ${mac} محفوظة لدينا، والتجديد يتم عن بُعد بدون ما ترسل أي أكواد. رد بـ *"تجديد"*${pay}.`;
+    case 'd3':return `🔔 *إشعار آلي | نظام ${s.store}*\nأهلاً *${nm}*، متبقي على انتهاء اشتراكك على *IBO Player* *3 أيام* فقط (ينتهي في ${end}).\nبيانات جهازك ${mac} محفوظة لدينا للتجديد عن بُعد دون انقطاع. رد بـ *"تجديد"*${pay}.`;
+    case 'd1':return `⏳ *تذكير أخير | اشتراكك ينتهي ${daysLeft(c)<=0?'اليوم':'غداً'}!*\nمرحباً *${nm}*، سيتوقف اشتراكك ${daysLeft(c)<=0?'اليوم':'غداً'} ${end}. للتجديد الفوري عن بُعد على نفس جهازك ${mac}، رد بـ *"تجديد"*${pay}.`;
+    case 'expired':return `مرحباً *${nm}* 👋\nانتهى اشتراكك في ${s.store} بتاريخ ${end}.\nجهازك ${mac} لسا محفوظ عندنا، ونرجع لك القنوات خلال دقائق بدون ما ترسل الأكواد مرة ثانية. رد بـ *"تجديد"*${pay}.`;
+    case 'quality':return `أهلاً *${nm}* 🌟\nصار لك يومين مع ${s.store}، كيف جودة البث عندك؟\nقيّمها من 1 إلى 5، وإذا فيه تقطيع أو قناة ما تشتغل علمنا ونحلها لك على طول.`;
+    case 'renewed':return `✅ *تم تجديد اشتراكك بنجاح*\nأهلاً *${nm}*، تم تمديد اشتراكك على جهازك ${mac} حتى *${end}*.\nأغلق IBO Player وافتحه من جديد. شكراً لثقتك في ${s.store} 🙏`;
+    case 'trialEnd':return `أهلاً *${nm}* 👋\nخلصت فترة التجربة، وش رأيك في الجودة؟\nإذا عجبتك نفعّل لك الاشتراك على نفس جهازك ${mac} خلال دقائق بدون ما ترسل الأكواد مرة ثانية. رد بـ *"اشتراك"*${pay}.`;
+  }
+  return '';
+}
+const waUrl=(phone,text)=>`https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+const sentKey=(id,c)=>`${id}@${c.endDate}`;
+function suggestTpl(c){
+  const d=daysLeft(c);
+  if(c.pkg==='trial')return d<0?'trialEnd':'activate';
+  if(d<0)return 'expired';if(d<=1)return 'd1';if(d<=3)return 'd3';if(d<=7)return 'd7';
+  if(!c.qualityDone&&diffDays(c.startDate||today(),today())>=2)return 'quality';
+  return 'activate';
+}
+
+/* ---------- tasks ---------- */
+const GROUPS=[
+  {id:'urgent',title:'ينتهون اليوم أو بكرة'},
+  {id:'remind',title:'تذكيرات قبل الانتهاء'},
+  {id:'lost',title:'انتهوا وما جددوا'},
+  {id:'quality',title:'فحص الجودة بعد 48 ساعة'}
+];
+function tasksFor(c){
+  const d=daysLeft(c),s=c.sent||{},k=id=>s[sentKey(id,c)];const out=[];
+  if(c.pkg==='trial'){if(d<0&&d>=-7&&!k('trialEnd'))out.push({c,tpl:'trialEnd',why:'خلصت التجربة، اعرض عليه الاشتراك',g:'lost'});return out;}
+  if(d<0){if(d>=-14&&!k('expired'))out.push({c,tpl:'expired',why:'انتهى وما جدد',g:'lost'});}
+  else if(d<=1){if(!k('d1'))out.push({c,tpl:'d1',why:'التذكير الأخير',g:'urgent'});}
+  else if(d<=3){if(!k('d3')&&!k('d1'))out.push({c,tpl:'d3',why:'تذكير قبل 3 أيام',g:'remind'});}
+  else if(d<=7){if(!k('d7')&&!k('d3')&&!k('d1'))out.push({c,tpl:'d7',why:'تذكير قبل أسبوع',g:'remind'});}
+  if(!c.qualityDone){const since=diffDays(c.startDate||today(),today());if(since>=2&&since<=10&&d>=0)out.push({c,tpl:'quality',why:`صار له ${daysWord(since)} من التفعيل`,g:'quality'});}
+  return out;
+}
+
+/* ---------- state ---------- */
+let db=null,canWrite=true,customers=[],loaded=false,loadTimer=null;
+let tab='tasks',filter='all',query='';
+let openId=null,detailTpl=null,detailTplFor=null,renewPkg=null,renewAmt='',lastDetailSig='';
+let editingId=null,endTouched=false;
+
+const FILTERS=[
+  {id:'all',label:'الكل',fn:()=>true},
+  {id:'active',label:'نشط',fn:c=>daysLeft(c)>=0},
+  {id:'d1',label:'اليوم/بكرة',fn:c=>{const d=daysLeft(c);return d>=0&&d<=1}},
+  {id:'d3',label:'2–3 أيام',fn:c=>{const d=daysLeft(c);return d>=2&&d<=3}},
+  {id:'d7',label:'4–7 أيام',fn:c=>{const d=daysLeft(c);return d>=4&&d<=7}},
+  {id:'expired',label:'منتهي',fn:c=>daysLeft(c)<0},
+  {id:'trial',label:'تجربة',fn:c=>c.pkg==='trial'}
+];
+
+/* ---------- render ---------- */
+function money(n){return `${Math.round(n).toLocaleString('en-US')}<small>${esc(settings.currency||'')}</small>`}
+function renderKpis(){
+  const m=today().slice(0,7);let active=0,d1=0,d3=0,d7=0,exp=0,rev=0;
+  for(const c of customers){const d=daysLeft(c);
+    if(d<0)exp++;else{active++;if(d<=1)d1++;else if(d<=3)d3++;else if(d<=7)d7++;}
+    for(const p of c.payments||[])if(String(p.date).startsWith(m))rev+=Number(p.amount)||0;}
+  const t=(f,tone,lbl,val)=>`<button class="kpi" type="button" data-act="filter" data-f="${f}" data-tone="${tone}"><span class="lbl"><span class="dot"></span>${lbl}</span><span class="val">${val}</span></button>`;
+  $('#kpis').innerHTML=
+    t('active','ok','نشط',active)+t('d1','bad','اليوم أو بكرة',d1)+t('d3','hot','خلال 2–3 أيام',d3)+
+    t('d7','warn','خلال 4–7 أيام',d7)+t('expired','off','منتهي',exp)+
+    `<div class="kpi money" data-tone="ok"><span class="lbl">دخل هالشهر</span><span class="val">${money(rev)}</span></div>`;
+}
+function row(c,extra){
+  const d=daysLeft(c),t=extra?.tpl||suggestTpl(c),phone=c.phone;
+  const macTail=c.mac?c.mac.slice(-5):'';
+  return `<div class="row">
+    <button class="row-main" type="button" data-act="open" data-id="${esc(c.id)}">
+      <span class="nm">${esc(c.name)} ${c.example?'<span class="tag ex">مثال</span>':''}</span>
+      <span class="meta">${extra?`<span>${esc(extra.why)}</span>`:`<span>${esc(pkgLabel(c.pkg))}</span>${isPaidScreen(c.screen)?`<span>${esc(screenLabel(c.screen))}</span>`:''}<span>ينتهي ${esc(nice(c.endDate))}</span>`}${macTail?`<span>MAC <span class="mono">${esc(macTail)}</span></span>`:''}</span>
+    </button>
+    ${pill(d)}
+    <div class="row-acts">
+      ${phone?`<a class="btn wa sm" href="${esc(waUrl(phone,tpl(t,c)))}" target="_blank" rel="noopener" data-act="wa" data-id="${esc(c.id)}" data-tpl="${t}">واتساب</a>`:''}
+      ${extra&&canWrite?`<button class="btn sm ghost" type="button" data-act="done" data-id="${esc(c.id)}" data-tpl="${t}" title="علّمها كمنتهية بدون إرسال">تم ✓</button>`:''}
+    </div>
+  </div>`;
+}
+function renderTasks(){
+  const all=customers.flatMap(tasksFor);
+  $('#cntTasks').textContent=all.length;
+  if(!loaded&&!customers.length){$('#viewTasks').innerHTML=`<div class="empty"><strong>جاري تحميل زبائنك…</strong></div>`;return}
+  if(!customers.length){$('#viewTasks').innerHTML=emptyCustomers();return}
+  if(!all.length){$('#viewTasks').innerHTML=`<div class="empty"><strong>ما فيه مهام اليوم</strong><span>كل التذكيرات مرسلة وما فيه أحد ينتهي قريب.</span></div>`;return}
+  $('#viewTasks').innerHTML=GROUPS.map(g=>{
+    const items=all.filter(x=>x.g===g.id).sort((a,b)=>daysLeft(a.c)-daysLeft(b.c));
+    if(!items.length)return '';
+    return `<h2>${g.title} <span class="count">${items.length}</span></h2><div class="rows">${items.map(x=>row(x.c,x)).join('')}</div>`;
+  }).join('');
+}
+function emptyCustomers(){return `<div class="empty"><strong>ما عندك زبائن للحين</strong><span>اضغط "زبون جديد" وعبّي الاسم والجوال والـ MAC، واللوحة تحسب الباقي.</span>${canWrite?'<button class="btn primary" type="button" data-act="add">+ أضف أول زبون</button>':''}</div>`}
+function sortKey(c){const d=daysLeft(c);return d<0?100000-d:d}
+function renderList(){
+  $('#cntList').textContent=customers.length;
+  $('#chips').innerHTML=FILTERS.map(f=>{const n=customers.filter(f.fn).length;return `<button class="chip" type="button" data-act="filter" data-f="${f.id}" aria-pressed="${filter===f.id}">${f.label} <span class="num">${n}</span></button>`}).join('');
+  if(!customers.length){$('#listBody').innerHTML=loaded?emptyCustomers():`<div class="empty"><strong>جاري تحميل زبائنك…</strong></div>`;return}
+  const f=FILTERS.find(x=>x.id===filter)||FILTERS[0];
+  const q=toLatin(query.trim()).toLowerCase();const qh=q.replace(/[^0-9a-f]/g,'');const qd=q.replace(/\D/g,'');
+  const list=customers.filter(f.fn).filter(c=>{
+    if(!q)return true;
+    if(String(c.name||'').toLowerCase().includes(q))return true;
+    if(String(c.notes||'').toLowerCase().includes(q))return true;
+    if(qd.length>=3&&String(c.phone||'').includes(qd.replace(/^0/,'')))return true;
+    if(qh.length>=2&&String(c.mac||'').replace(/:/g,'').toLowerCase().includes(qh))return true;
+    return false;
+  }).sort((a,b)=>sortKey(a)-sortKey(b));
+  $('#listBody').innerHTML=list.length?`<div class="rows">${list.map(c=>row(c)).join('')}</div>`:`<div class="empty"><strong>ما لقينا أحد</strong><span>جرّب كلمة ثانية أو غيّر الفلتر.</span></div>`;
+}
+function renderNotice(){
+  const n=$('#notice');const ex=customers.filter(c=>c.example).length;
+  if(window.__dbErr){n.className='notice err';n.textContent=window.__dbErr;n.hidden=false;return}
+  if(!canWrite){n.className='notice';n.textContent='تقدر تشوف اللوحة بس، ما عندك صلاحية تعديل.';n.hidden=false;return}
+  if(ex&&canWrite){n.className='notice';n.innerHTML=`<span>فيه ${ex} زبائن <strong>تجريبيين</strong> عشان تشوف كيف تشتغل اللوحة. احذفهم أول ما تبدأ تضيف زبائنك.</span><button class="btn sm" type="button" data-act="clearEx">احذف الأمثلة</button>`;n.hidden=false;return}
+  n.hidden=true;
+}
+function renderAll(){
+  $('#brandName').textContent=settings.store||DEFAULTS.store;
+  $('#brandSub').textContent=`لوحة الزبائن · ${settings.server||DEFAULTS.server} · IBO Player`;
+  renderNotice();renderKpis();renderTasks();renderList();
+  $('#fab').hidden=!canWrite;
+  if(openId)renderDetail(false);
+}
+
+/* ---------- detail ---------- */
+function renderDetail(force){
+  const c=customers.find(x=>x.id===openId);
+  if(!c){closeAll();return}
+  const sig=JSON.stringify(c)+JSON.stringify(settings)+renewPkg+detailTpl;
+  if(!force&&sig===lastDetailSig)return;
+  const keepMsg=!force&&detailTplFor===detailTpl?$('#msgText')?.value:null;
+  lastDetailSig=sig;
+  if(!detailTpl)detailTpl=suggestTpl(c);
+  const d=daysLeft(c),pays=c.payments||[];const total=pays.reduce((a,p)=>a+(Number(p.amount)||0),0);
+  const sentAt=detailTpl==='quality'?(c.qualityDone?'تم':null):(c.sent||{})[sentKey(detailTpl,c)];
+  const msg=tpl(detailTpl,c);
+  const renewFrom=d>=0?c.endDate:today();
+  const fact=(lbl,val,copy,cls)=>`<div class="fact"><span>${lbl}</span><div><strong class="${cls||''}">${esc(val||'—')}</strong>${copy&&val?`<button class="copy" type="button" data-act="copy" data-v="${esc(copy)}">نسخ</button>`:''}</div></div>`;
+  $('#detailBody').innerHTML=`
+    <div class="sheet-head"><div><h3 id="detTitle">${esc(c.name)} ${c.example?'<span class="tag ex">مثال</span>':''}</h3><div style="margin-top:6px">${pill(d)}</div></div><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
+    <div class="facts">
+      ${fact('الجوال',prettyPhone(c.phone),c.phone?'+'+c.phone:'','mono')}
+      ${fact('MAC Address',c.mac,c.mac,'mono')}
+      ${fact('Device Key',c.deviceKey,c.deviceKey,'mono')}
+      ${fact('الباقة',pkgLabel(c.pkg))}
+      ${fact('نوع الشاشة',screenLabel(c.screen))}
+      ${fact('تاريخ التفعيل',nice(c.startDate))}
+      ${fact('تاريخ الانتهاء',nice(c.endDate))}
+      ${fact('عدد التجديدات',String(pays.filter(p=>p.kind==='renew').length))}
+      ${fact('إجمالي اللي دفعه',`${Math.round(total).toLocaleString('en-US')} ${settings.currency||''}`)}
+      ${fact('مين أحاله',c.referredBy||'—')}
+    </div>
+    ${c.notes?`<div class="notes">${esc(c.notes)}</div>`:''}
+    <div class="sec">
+      <h4>أرسل رسالة واتساب</h4>
+      <div class="chips">${TPLS.map(t=>`<button class="chip" type="button" data-act="tplPick" data-tpl="${t.id}" aria-pressed="${t.id===detailTpl}">${t.label}</button>`).join('')}</div>
+      <textarea class="msg" id="msgText" aria-label="نص الرسالة">${esc(keepMsg??msg)}</textarea>
+      <div class="msg-acts">
+        ${c.phone?`<a class="btn wa" id="waLink" href="${esc(waUrl(c.phone,keepMsg??msg))}" target="_blank" rel="noopener" data-act="wa" data-id="${esc(c.id)}" data-tpl="${detailTpl}">افتح الواتساب</a>`:'<span class="hint">أضف رقم جوال عشان ترسل</span>'}
+        <button class="btn" type="button" data-act="copyMsg">نسخ النص</button>
+        ${sentAt?`<span class="sent-note">✓ أُرسلت ${sentAt==='تم'?'':esc(nice(sentAt))}</span>`:''}
+      </div>
+    </div>
+    ${canWrite?`<div class="sec">
+      <h4>تجديد الاشتراك</h4>
+      <div class="renew">${PKGS.filter(p=>p.id!=='trial').map(p=>`<button class="chip" type="button" data-act="renewPick" data-pkg="${p.id}" aria-pressed="${renewPkg===p.id}">+ ${p.label}</button>`).join('')}</div>
+      ${renewPkg?`<div class="renew-box">
+        <div>من <strong>${esc(nice(renewFrom))}</strong> إلى <strong>${esc(nice(addPkg(renewFrom,renewPkg)))}</strong>${d<0?' <span class="hint">(يبدأ من اليوم لأن اشتراكه منتهي)</span>':''}</div>
+        <div class="line"><div class="field"><label for="r_amt">المبلغ المدفوع${feeFor(renewPkg,c.screen)?` (شامل ${feeFor(renewPkg,c.screen)} رسوم الشاشة)`:''}</label><input id="r_amt" class="ltr num" inputmode="decimal" value="${esc(renewAmt)}"></div>
+        <button class="btn primary" type="button" data-act="renewGo" id="btnRenew">تأكيد التجديد</button><button class="btn ghost" type="button" data-act="renewCancel">إلغاء</button></div>
+      </div>`:''}
+    </div>`:''}
+    ${pays.length?`<div class="sec"><h4>سجل الدفعات</h4><div class="hist">${pays.slice().reverse().map(p=>`<div><span>${p.kind==='renew'?'تجديد':'اشتراك جديد'} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><strong class="num">${esc(String(p.amount??0))} ${esc(settings.currency||'')}</strong></div>`).join('')}</div></div>`:''}
+    ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button><button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button></div>`:''}
+  `;
+  detailTplFor=detailTpl;
+}
+
+/* ---------- sheets ---------- */
+function show(id){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=s.id!==id);}
+function closeAll(){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=true);openId=null;renewPkg=null;detailTpl=null;lastDetailSig='';}
+function openDetail(id,tplId){openId=id;detailTpl=tplId||null;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
+
+let toastT=null;
+function toast(text,undo){
+  const t=$('#toast');t.innerHTML=`<span>${esc(text)}</span>${undo?'<button type="button" id="undoBtn">تراجع</button>':''}`;t.hidden=false;
+  if(undo)$('#undoBtn').onclick=()=>{t.hidden=true;undo();};
+  clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,undo?7000:2600);
+}
+async function copyText(v,btn){
+  try{await navigator.clipboard.writeText(v);toast('تم النسخ');}
+  catch(e){const ta=document.createElement('textarea');ta.value=v;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('تم النسخ')}catch(_){toast('حدد النص وانسخه يدوياً')}ta.remove();}
+}
+
+/* ---------- form ---------- */
+function fillPkgSelect(){
+  $('#f_screen').innerHTML=SCREENS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('');
+  $('#f_pkg').innerHTML=PKGS.map(p=>`<option value="${p.id}">${p.label}</option>`).join('');
+  $('#priceFields').innerHTML=PKGS.map(p=>`<div class="field"><label for="pr_${p.id}">${p.label}</label><input id="pr_${p.id}" class="ltr num" inputmode="decimal"></div>`).join('');
+}
+function priceOf(pid){return Number((settings.prices||{})[pid])||0}
+function feeFor(pid,screen){return isPaidScreen(screen)&&pid==='12m'?(Number(settings.screenFee)||0):0}
+function amountFor(pid,screen){return priceOf(pid)+feeFor(pid,screen)}
+function updateEnd(){
+  if(!endTouched&&$('#f_start').value)$('#f_end').value=addPkg($('#f_start').value,$('#f_pkg').value);
+  const pid=$('#f_pkg').value,sc=$('#f_screen').value,fee=feeFor(pid,sc);
+  $('#h_amount').textContent=!priceOf(pid)?'حدد أسعار باقاتك من الإعدادات عشان تتعبى تلقائياً':fee?`شامل ${fee} ${settings.currency||''} رسوم ${screenLabel(sc)}`:(isPaidScreen(sc)?'رسوم الشاشة تنضاف تلقائياً على باقة السنة فقط':'');
+}
+function openForm(c){
+  editingId=c?c.id:null;endTouched=!!c;
+  $('#formTitle').textContent=c?`تعديل: ${c.name}`:'زبون جديد';
+  $('#btnSave').textContent=c?'حفظ التعديلات':'حفظ الزبون';
+  $('#pasteBox').hidden=!!c;$('#amountField').hidden=!!c;
+  $('#f_paste').value='';$('#f_name').value=c?.name||'';$('#f_phone').value=c?.phone?'+'+c.phone:'';
+  $('#f_mac').value=c?.mac||'';$('#f_key').value=c?.deviceKey||'';$('#f_ref').value=c?.referredBy||'';$('#f_notes').value=c?.notes||'';
+  $('#f_pkg').value=c?.pkg||'12m';$('#f_screen').value=c?.screen||'android';$('#f_start').value=c?.startDate||today();$('#f_end').value=c?.endDate||'';
+  $('#f_amount').value=c?'':(amountFor('12m','android')||'');
+  $('#formErr').hidden=true;$('#h_mac').textContent='';$('#h_mac').className='hint';
+  $('#h_phone').textContent='يتحول تلقائياً للصيغة الدولية';$('#h_phone').className='hint';
+  if(!c)updateEnd();
+  show('sheetForm');setTimeout(()=>(c?$('#f_name'):$('#f_name')).focus(),60);
+}
+function checkMac(){
+  const m=fmtMac($('#f_mac').value);if($('#f_mac').value)$('#f_mac').value=m;
+  const h=$('#h_mac');h.className='hint';h.textContent='';
+  if(!m)return true;
+  if(!macOk(m)){h.className='hint err';h.textContent='الـ MAC لازم يكون 12 خانة (أرقام وحروف A–F)';return false}
+  const dup=customers.find(x=>x.mac===m&&x.id!==editingId);
+  if(dup){h.className='hint warn';h.textContent=`نفس الـ MAC مسجل عند: ${dup.name}`}
+  return true;
+}
+function checkPhone(){
+  const p=normPhone($('#f_phone').value);const h=$('#h_phone');
+  if(!$('#f_phone').value.trim()){h.className='hint';h.textContent='يتحول تلقائياً للصيغة الدولية';return null}
+  if(p.length<10||p.length>15){h.className='hint err';h.textContent='الرقم ناقص أو غلط';return null}
+  const dup=customers.find(x=>x.phone===p&&x.id!==editingId);
+  h.className=dup?'hint warn':'hint';h.textContent=dup?`الرقم مسجل عند: ${dup.name} (+${p})`:`بينحفظ كذا: +${p}`;
+  return p;
+}
+async function saveForm(e){
+  e.preventDefault();if(!db||!canWrite)return;
+  const err=$('#formErr');err.hidden=true;
+  const name=$('#f_name').value.trim();const phone=checkPhone();const macFine=checkMac();
+  const start=$('#f_start').value,end=$('#f_end').value;
+  const fail=m=>{err.textContent=m;err.hidden=false;};
+  if(!name)return fail('اكتب اسم الزبون');
+  if(!phone)return fail('اكتب رقم جوال صحيح');
+  if(!macFine)return fail('صحح الـ MAC أو امسحه');
+  if(!start||!end)return fail('حدد تاريخ التفعيل والانتهاء');
+  if(end<start)return fail('تاريخ الانتهاء قبل تاريخ التفعيل');
+  const base={name,phone,mac:fmtMac($('#f_mac').value),deviceKey:toLatin($('#f_key').value).trim(),pkg:$('#f_pkg').value,screen:$('#f_screen').value,
+    startDate:start,endDate:end,notes:$('#f_notes').value.trim(),referredBy:$('#f_ref').value.trim()};
+  const btn=$('#btnSave');btn.disabled=true;
+  try{
+    if(editingId){
+      await db.update(editingId,base);
+      closeAll();openDetail(editingId);toast('تم حفظ التعديلات');
+    }else{
+      const amount=Number(toLatin($('#f_amount').value).replace(/[^\d.]/g,''))||0;
+      const doc={...base,payments:[{date:start,amount,pkg:base.pkg,kind:'new'}],sent:{},qualityDone:false,createdAt:Date.now()};
+      const newId=await db.add(doc);
+      closeAll();openDetail(newId,'activate');toast('تم حفظ الزبون. أرسل له رسالة التفعيل');
+    }
+  }catch(ex){fail(errText(ex,'ما قدرنا نحفظ، تأكد من الاتصال وجرّب مرة ثانية'));}
+  finally{btn.disabled=false}
+}
+
+/* ---------- actions ---------- */
+async function markSent(id,tplId){
+  const c=customers.find(x=>x.id===id);if(!c||!db||!canWrite)return;
+  try{
+    if(tplId==='quality')await db.update(id,{qualityDone:true});
+    else if(['d7','d3','d1','expired','trialEnd','activate','renewed'].includes(tplId))await db.update(id,{sent:{[sentKey(tplId,c)]:today()}});
+  }catch(e){toast('ما انحفظت علامة الإرسال، جرّب مرة ثانية')}
+}
+async function doRenew(){
+  const c=customers.find(x=>x.id===openId);if(!c||!renewPkg)return;
+  const amount=Number(toLatin($('#r_amt')?.value||'').replace(/[^\d.]/g,''))||0;
+  const from=daysLeft(c)>=0?c.endDate:today();const newEnd=addPkg(from,renewPkg);
+  const prev={endDate:c.endDate,pkg:c.pkg,payments:c.payments||[],qualityDone:!!c.qualityDone};
+  const next={endDate:newEnd,pkg:renewPkg,payments:[...(c.payments||[]),{date:today(),amount,pkg:renewPkg,kind:'renew'}],qualityDone:true};
+  const btn=$('#btnRenew');if(btn)btn.disabled=true;
+  try{
+    await db.update(c.id,next);
+    renewPkg=null;detailTpl='renewed';
+    toast(`تم التجديد حتى ${nice(newEnd)}`,async()=>{try{await db.update(c.id,prev);toast('تم التراجع')}catch(e){toast('ما قدرنا نتراجع')}});
+  }catch(e){toast('ما قدرنا نجدد، جرّب مرة ثانية');if(btn)btn.disabled=false}
+}
+let pendingDelete=null;
+function askDelete(ids,text){pendingDelete=ids;$('#cfText').textContent=text;show('sheetConfirm');}
+async function doDelete(){
+  const ids=pendingDelete||[];pendingDelete=null;$('#cfYes').disabled=true;
+  try{for(const id of ids)await db.remove(id);closeAll();toast(ids.length>1?'تم حذف الأمثلة':'تم حذف الزبون');}
+  catch(e){toast('ما قدرنا نحذف، جرّب مرة ثانية')}
+  finally{$('#cfYes').disabled=false}
+}
+
+document.addEventListener('click',e=>{
+  const sc=e.target.closest('[data-scrim]');if(sc&&e.target===sc){closeAll();return}
+  const t=e.target.closest('[data-act]');if(!t)return;
+  const a=t.dataset.act,id=t.dataset.id;
+  switch(a){
+    case 'add':if(canWrite)openForm(null);break;
+    case 'settings':openSettings();break;
+    case 'close':closeAll();break;
+    case 'tab':setTab(t.dataset.tab);break;
+    case 'filter':filter=t.dataset.f;setTab('list');renderList();break;
+    case 'open':openDetail(id);break;
+    case 'wa':markSent(id,t.dataset.tpl);break;
+    case 'done':markSent(id,t.dataset.tpl);toast('تمت');break;
+    case 'copy':copyText(t.dataset.v);break;
+    case 'copyMsg':copyText($('#msgText').value);break;
+    case 'tplPick':detailTpl=t.dataset.tpl;renderDetail(true);break;
+    case 'renewPick':{renewPkg=t.dataset.pkg;{const cc=customers.find(x=>x.id===openId);renewAmt=String(amountFor(renewPkg,cc?.screen)||'');};renderDetail(true);break}
+    case 'renewCancel':renewPkg=null;renderDetail(true);break;
+    case 'renewGo':doRenew();break;
+    case 'edit':{const c=customers.find(x=>x.id===id);if(c){openId=null;openForm(c)}break}
+    case 'del':{const c=customers.find(x=>x.id===id);if(c)askDelete([id],`متأكد تبغا تحذف "${c.name}"؟ بينحذف ملفه وسجل دفعاته نهائياً.`);break}
+    case 'refresh':db?.load(true);break;
+    case 'logout':logout();break;
+    case 'clearEx':{const ids=customers.filter(c=>c.example).map(c=>c.id);askDelete(ids,`بنحذف ${ids.length} زبائن تجريبيين. زبائنك الحقيقيين ما يتأثرون.`);break}
+  }
+});
+$('#cfYes').addEventListener('click',doDelete);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
+document.addEventListener('input',e=>{
+  if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
+  if(e.target.id==='r_amt')renewAmt=e.target.value;
+  if(e.target.id==='q'){query=e.target.value;renderList();}
+});
+function setTab(t){tab=t;$('#tabTasks').setAttribute('aria-selected',t==='tasks');$('#tabList').setAttribute('aria-selected',t==='list');$('#viewTasks').hidden=t!=='tasks';$('#viewList').hidden=t!=='list';}
+
+$('#custForm').addEventListener('submit',saveForm);
+const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value)||'';};
+$('#f_pkg').addEventListener('change',()=>{endTouched=false;updateEnd();refreshAmount();});
+$('#f_screen').addEventListener('change',()=>{updateEnd();refreshAmount();});
+$('#f_start').addEventListener('change',()=>{endTouched=false;updateEnd();});
+$('#f_end').addEventListener('change',()=>{endTouched=true;});
+$('#f_mac').addEventListener('blur',checkMac);
+$('#f_mac').addEventListener('paste',()=>setTimeout(checkMac,0));
+$('#f_phone').addEventListener('blur',checkPhone);
+$('#f_paste').addEventListener('input',e=>{
+  const r=parseMsg(e.target.value);
+  if(r.mac){$('#f_mac').value=r.mac;checkMac();}
+  if(r.deviceKey)$('#f_key').value=r.deviceKey;
+  if(r.phone){$('#f_phone').value=r.phone;checkPhone();}
+});
+
+/* ---------- settings ---------- */
+function openSettings(){
+  $('#s_store').value=settings.store||'';$('#s_server').value=settings.server||'';$('#s_pay').value=settings.payLink||'';
+  $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
+  for(const p of PKGS)$('#pr_'+p.id).value=priceOf(p.id)||'';
+  $('#s_fee').value=settings.screenFee??35;
+  $('#setErr').hidden=true;
+  const ro=!canWrite;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;
+  show('sheetSettings');
+}
+$('#setForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!db||!canWrite)return;
+  const prices={};for(const p of PKGS)prices[p.id]=Number(toLatin($('#pr_'+p.id).value).replace(/[^\d.]/g,''))||0;
+  const next={store:$('#s_store').value.trim()||DEFAULTS.store,server:$('#s_server').value.trim()||DEFAULTS.server,payLink:$('#s_pay').value.trim(),
+    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices};
+  $('#btnSetSave').disabled=true;
+  try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');}
+  catch(ex){$('#setErr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#setErr').hidden=false}
+  finally{$('#btnSetSave').disabled=false}
+});
+
+/* ---------- boot ---------- */
+fillPkgSelect();renderAll();
+let lastDay=today();
+setInterval(()=>{if(today()!==lastDay){lastDay=today();renderAll();}},60000);
+
+/* ---------- Google Sheets connection ---------- */
+const CONN_KEY='tvdash.connection';
+let conn=null;try{conn=JSON.parse(localStorage.getItem(CONN_KEY)||'null')}catch(e){conn=null}
+function errText(ex,fallback){
+  if(ex?.code==='auth')return 'كلمة السر غلط';
+  if(ex?.code==='network')return 'ما فيه اتصال بالإنترنت أو الرابط غلط';
+  if(ex?.code==='conflict')return 'فيه تعديل أحدث على هالزبون من جهاز ثاني. حدّث الصفحة وجرّب مرة ثانية';
+  return fallback;
+}
+async function call(action,payload){
+  let res;
+  try{res=await fetch(conn.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,pass:conn.pass,...payload}),redirect:'follow'});}
+  catch(e){throw {code:'network'}}
+  let j;try{j=await res.json()}catch(e){throw {code:'network'}}
+  if(!j.ok)throw {code:j.error||'error',message:j.message};
+  return j;
+}
+const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
+function deepMerge(a,b){const o={...a};for(const k of Object.keys(b)){o[k]=isObj(b[k])&&isObj(a[k])?deepMerge(a[k],b[k]):b[k]}return o}
+let loading=false;
+const store={
+  async load(manual){
+    if(loading)return;loading=true;if(manual)toast('جاري التحديث…');
+    try{
+      const j=await call('load',{});
+      customers=(j.customers||[]).filter(c=>c.endDate);
+      if(j.settings)settings={...DEFAULTS,...j.settings,prices:{...DEFAULTS.prices,...(j.settings.prices||{})}};
+      loaded=true;window.__dbErr=null;renderAll();if(manual)toast('تم التحديث');
+    }catch(ex){
+      if(ex.code==='auth'){logout('كلمة السر تغيرت، ادخل من جديد');return}
+      window.__dbErr=errText(ex,'ما قدرنا نجيب البيانات من الشيت');loaded=true;renderAll();
+    }finally{loading=false}
+  },
+  async update(id,patch){
+    const prev=customers.find(c=>c.id===id);if(!prev)throw {code:'missing'};
+    const next=deepMerge(prev,patch);
+    customers=customers.map(c=>c.id===id?next:c);renderAll();
+    try{await call('save',{customer:next})}
+    catch(ex){customers=customers.map(c=>c.id===id?prev:c);renderAll();throw ex}
+  },
+  async add(doc){
+    const id='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const c={id,...doc};await call('save',{customer:c});
+    customers=[...customers,c];renderAll();return id;
+  },
+  async remove(id){await call('delete',{id});customers=customers.filter(c=>c.id!==id);renderAll();},
+  async saveSettings(s){await call('saveSettings',{settings:s});}
+};
+function showApp(on){$('#connect').hidden=on;$('#main').hidden=!on;}
+function logout(msg){
+  try{localStorage.removeItem(CONN_KEY)}catch(e){}
+  conn=null;db=null;customers=[];loaded=false;closeAll();showApp(false);
+  $('#c_pass').value='';const e=$('#connErr');e.hidden=!msg;e.textContent=msg||'';
+}
+$('#connForm').addEventListener('submit',async e=>{
+  e.preventDefault();const err=$('#connErr');err.hidden=true;
+  const url=$('#c_url').value.trim(),pass=$('#c_pass').value;
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(url)){err.textContent='الرابط لازم يبدأ بـ https://script.google.com/macros/s/ وينتهي بـ /exec';err.hidden=false;return}
+  if(!pass){err.textContent='اكتب كلمة السر';err.hidden=false;return}
+  conn={url,pass};$('#btnConn').disabled=true;
+  try{await call('ping',{});try{localStorage.setItem(CONN_KEY,JSON.stringify(conn))}catch(_){} db=store;showApp(true);await store.load();}
+  catch(ex){conn=null;err.textContent=errText(ex,'ما قدرنا نتصل، تأكد من الرابط');err.hidden=false}
+  finally{$('#btnConn').disabled=false}
+});
+if(conn){db=store;showApp(true);store.load();}else{showApp(false);if(conn?.url)$('#c_url').value=conn.url;}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&db&&!openId&&$('#sheetForm').hidden)store.load();});
+setInterval(()=>{if(db&&document.visibilityState==='visible'&&!openId&&$('#sheetForm').hidden)store.load();},180000);
+})();
+</script>
+</body>
+</html>
