@@ -41,7 +41,7 @@ create table if not exists public.customers (
   phone         text not null default '' check (char_length(phone) <= 20),
   mac           text not null default '' check (char_length(mac) <= 17),
   device_key    text not null default '' check (char_length(device_key) <= 40),
-  screen        text not null default 'android' check (screen in ('android', 'lg', 'samsung', 'other')),
+  screen        text not null default 'android',
   pkg           text not null default '12m' check (pkg in ('trial', '1m', '3m', '6m', '12m')),
   start_date    date not null,
   end_date      date not null,
@@ -55,7 +55,22 @@ create table if not exists public.customers (
   updated_at    timestamptz not null default now(),
   created_by    uuid default auth.uid() references auth.users(id) on delete set null
 );
+-- ---------- تحديث 2: أجهزة وتطبيقات أكثر + يوزر وباس الخط ----------
+alter table public.customers add column if not exists app       text not null default 'ibo';
+alter table public.customers add column if not exists line_user text not null default '';
+alter table public.customers add column if not exists line_pass text not null default '';
+alter table public.customers drop constraint if exists customers_screen_check;
+alter table public.customers add  constraint customers_screen_check
+  check (screen in ('android', 'lg', 'samsung', 'iphone', 'phone', 'pc', 'other'));
+alter table public.customers drop constraint if exists customers_app_check;
+alter table public.customers add  constraint customers_app_check check (app in ('ibo', 'smarters', 'other'));
+alter table public.customers drop constraint if exists customers_line_user_len;
+alter table public.customers add  constraint customers_line_user_len check (char_length(line_user) <= 100);
+alter table public.customers drop constraint if exists customers_line_pass_len;
+alter table public.customers add  constraint customers_line_pass_len check (char_length(line_pass) <= 100);
+
 create index if not exists customers_end_date_idx on public.customers (end_date);
+create index if not exists customers_line_user_idx on public.customers (line_user);
 create index if not exists customers_mac_idx on public.customers (mac);
 create index if not exists customers_phone_idx on public.customers (phone);
 

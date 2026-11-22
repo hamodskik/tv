@@ -207,7 +207,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   <header class="top" id="topBar">
     <div class="brand">
       <h1 id="brandName">عالم محمد تيفي</h1>
-      <p id="brandSub">لوحة الزبائن · سيرفر فولتشر · IBO Player</p>
+      <p id="brandSub">لوحة الزبائن · سيرفر فولتشر</p>
     </div>
     <div class="top-actions">
       <button class="btn ghost" type="button" data-act="refresh" id="btnRefresh" title="تحديث البيانات">تحديث</button>
@@ -233,7 +233,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <div class="tools">
       <label class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="ابحث بالاسم أو الجوال أو آخر أرقام الـ MAC" autocomplete="off">
+        <input id="q" type="search" placeholder="ابحث بالاسم أو الجوال أو الـ MAC أو اليوزر" autocomplete="off">
       </label>
       <div class="chips" id="chips"></div>
     </div>
@@ -248,7 +248,7 @@ button,input,select,textarea{font:inherit;color:inherit}
       <div class="sheet-head"><h3 id="formTitle">زبون جديد</h3><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
       <form class="form" id="custForm" novalidate>
         <div class="paste" id="pasteBox">
-          <p><strong>اختصار:</strong> الصق رسالة الزبون أو صورة بياناته المكتوبة هنا، وبنطلع منها الجوال والـ MAC والـ Device Key تلقائياً.</p>
+          <p><strong>اختصار:</strong> الصق رسالة الزبون أو بيانات الخط من البانل هنا، وبنطلع منها الجوال والـ MAC والـ Device Key واليوزر والباس تلقائياً.</p>
           <textarea id="f_paste" placeholder="مثال: Mac: 00:1A:79:AB:CD:EF  Key: 123456  جوالي 0551234567"></textarea>
         </div>
         <div class="field"><label for="f_name">اسم الزبون <b>*</b></label><input id="f_name" autocomplete="off" placeholder="أبو فهد"></div>
@@ -257,12 +257,20 @@ button,input,select,textarea{font:inherit;color:inherit}
           <div class="field"><label for="f_ref">مين أحاله؟ (اختياري)</label><input id="f_ref" autocomplete="off" placeholder="اسم الزبون اللي جابه"></div>
         </div>
         <div class="grid2">
+          <div class="field"><label for="f_screen">الجهاز</label><select id="f_screen"></select></div>
+          <div class="field"><label for="f_app">التطبيق</label><select id="f_app"></select></div>
+        </div>
+        <div class="grid2" id="iboFields">
           <div class="field"><label for="f_mac">MAC Address</label><input id="f_mac" class="ltr mono" autocomplete="off" placeholder="00:1A:79:XX:XX:XX"><span class="hint" id="h_mac"></span></div>
           <div class="field"><label for="f_key">Device Key</label><input id="f_key" class="ltr mono" inputmode="numeric" autocomplete="off" placeholder="123456"></div>
         </div>
+        <div class="grid2" id="loginFields">
+          <div class="field"><label for="f_luser">Username (من البانل)</label><input id="f_luser" class="ltr mono" autocomplete="off" placeholder="username"></div>
+          <div class="field"><label for="f_lpass">Password (من البانل)</label><input id="f_lpass" class="ltr mono" autocomplete="off" placeholder="password"></div>
+        </div>
         <div class="grid2">
-          <div class="field"><label for="f_screen">نوع الشاشة</label><select id="f_screen"></select></div>
           <div class="field"><label for="f_pkg">الباقة</label><select id="f_pkg"></select></div>
+          <div class="field"></div>
         </div>
         <div class="grid2">
           <div class="field" id="amountField"><label for="f_amount">المبلغ المدفوع</label><input id="f_amount" class="ltr num" inputmode="decimal" autocomplete="off"><span class="hint" id="h_amount"></span></div>
@@ -296,6 +304,7 @@ button,input,select,textarea{font:inherit;color:inherit}
           <div class="field"><label for="s_store">اسم المتجر</label><input id="s_store"></div>
           <div class="field"><label for="s_server">اسم السيرفر</label><input id="s_server"></div>
         </div>
+        <div class="field"><label for="s_surl">رابط السيرفر (ينرسل مع اليوزر والباس لمستخدمين Smarters والتطبيقات الثانية)</label><input id="s_surl" class="ltr" placeholder="http://example.com:8080"></div>
         <div class="field"><label for="s_pay">رابط الدفع (يظهر في رسائل التذكير)</label><input id="s_pay" class="ltr" placeholder="https://..."></div>
         <div class="grid2">
           <div class="field"><label for="s_cc">مفتاح الدولة الافتراضي</label><input id="s_cc" class="ltr num" inputmode="numeric" placeholder="966"></div>
@@ -360,7 +369,11 @@ const PKGS=[
   {id:'6m',label:'6 شهور',months:6},
   {id:'12m',label:'سنة',months:12}
 ];
-const SCREENS=[{id:'android',label:'أندرويد / TV Box'},{id:'lg',label:'شاشة LG'},{id:'samsung',label:'شاشة سامسونج'},{id:'other',label:'جهاز ثاني'}];
+const SCREENS=[{id:'android',label:'أندرويد / TV Box',app:'ibo'},{id:'lg',label:'شاشة LG',app:'ibo'},{id:'samsung',label:'شاشة سامسونج',app:'ibo'},
+  {id:'iphone',label:'آيفون / آيباد',app:'smarters'},{id:'phone',label:'جوال أندرويد',app:'smarters'},{id:'pc',label:'كمبيوتر',app:'smarters'},{id:'other',label:'جهاز ثاني',app:'other'}];
+const APPS=[{id:'ibo',label:'IBO Player'},{id:'smarters',label:'IPTV Smarters'},{id:'other',label:'تطبيق ثاني'}];
+const appLabel=id=>(APPS.find(a=>a.id===id)||APPS[0]).label;
+const isIbo=c=>(c.app||'ibo')==='ibo';
 const screenLabel=id=>(SCREENS.find(s=>s.id===id)||{label:'—'}).label;
 const isPaidScreen=id=>id==='lg'||id==='samsung';
 const pkgLabel=id=>(PKGS.find(p=>p.id===id)||{label:id||'—'}).label;
@@ -404,6 +417,8 @@ function parseMsg(t){
   const mac=t.match(/([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}/);if(mac)out.mac=fmtMac(mac[0]);
   const key=t.match(/(?:device\s*key|key|كي|المفتاح|مفتاح)[^\d]{0,12}(\d{4,10})/i);if(key)out.deviceKey=key[1];
   const ph=t.match(/(?:\+|00)?9665\d{8}|05\d{8}/);if(ph)out.phone=ph[0];
+  const us=t.match(/(?:user\s*name|username|user|اليوزر|المستخدم)\s*[:=：]?\s*([^\s,،]+)/i);if(us)out.lineUser=us[1];
+  const pw=t.match(/(?:password|pass|الباسورد|الباس|كلمة\s*(?:السر|المرور))\s*[:=：]?\s*([^\s,،]+)/i);if(pw)out.linePass=pw[1];
   return out;
 }
 
@@ -420,39 +435,43 @@ const TPLS=[
 ];
 const TONES=[{id:'friendly',label:'ودّي'},{id:'formal',label:'رسمي'},{id:'hype',label:'حماسي 🔥'},{id:'short',label:'مختصر'}];
 const toneLabel=id=>(TONES.find(t=>t.id===id)||TONES[0]).label;
-const VARS=[['{الاسم}','الاسم'],['{الجهاز}','MAC'],['{الانتهاء}','تاريخ الانتهاء'],['{المتبقي}','الأيام الباقية'],['{متى}','اليوم/بكرة'],['{الباقة}','الباقة'],['{المتجر}','اسم المتجر'],['{السيرفر}','السيرفر'],['{رابط_الدفع}','رابط الدفع']];
+const VARS=[['{الاسم}','الاسم'],['{الجهاز}','MAC'],['{الانتهاء}','تاريخ الانتهاء'],['{المتبقي}','الأيام الباقية'],['{متى}','اليوم/بكرة'],['{الباقة}','الباقة'],['{المتجر}','اسم المتجر'],['{السيرفر}','السيرفر'],['{رابط_الدفع}','رابط الدفع'],['{التطبيق}','التطبيق'],['{بيانات_الدخول}','بيانات الدخول']];
 const DEFAULT_TPLS={
 activate:{
 formal:`✨ *أهلاً بك في {المتجر} ({السيرفر})* ✨
-تم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر تطبيق *IBO Player* 🟢
+تم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر تطبيق *{التطبيق}* 🟢
 
 *الباقة:* {السيرفر} | {الباقة}
-*الجهاز (MAC):* {الجهاز}
+*الجهاز:* {الجهاز}
+{بيانات_الدخول}
 *ينتهي في:* {الانتهاء}
 *الحالة:* مكتمل عن بُعد ✅
 
-*طريقة التشغيل:* أغلق تطبيق IBO Player وأعد فتحه وستعمل القنوات فوراً.`,
+*طريقة التشغيل:* أغلق تطبيق {التطبيق} وأعد فتحه وستعمل القنوات فوراً.`,
 friendly:`أهلاً {الاسم} 👋
 تم تفعيل اشتراكك في *{المتجر}* ✅
 
 📺 الباقة: {الباقة}
 🔢 الجهاز: {الجهاز}
+{بيانات_الدخول}
 📅 ينتهي في: {الانتهاء}
 
-سكّر تطبيق IBO Player وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍`,
+سكّر تطبيق {التطبيق} وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍`,
 hype:`🔥🔥 *مبروك {الاسم}!* 🔥🔥
 اشتراكك في *{المتجر}* صار شغّال 100% ⚡
 
 🏆 الباقة: *{الباقة}*
 📺 الجهاز: {الجهاز}
+{بيانات_الدخول}
 ⏳ لين: {الانتهاء}
 
 ⚽ مباريات، 🎬 أفلام، 📡 قنوات… كلها صارت عندك!
-سكّر IBO Player وافتحه، واستمتع 🍿`,
+سكّر {التطبيق} وافتحه، واستمتع 🍿`,
 short:`✅ تم تفعيل اشتراكك يا {الاسم}
 الجهاز: {الجهاز}
+{بيانات_الدخول}
 ينتهي: {الانتهاء}
-سكّر IBO Player وافتحه 👍`},
+سكّر {التطبيق} وافتحه 👍`},
 d7:{
 formal:`🔔 *إشعار | {المتجر}*
 أهلاً {الاسم}، نود تذكيرك بأن اشتراكك ينتهي بعد {المتبقي} بتاريخ {الانتهاء}.
@@ -472,7 +491,7 @@ short:`تذكير: اشتراكك ينتهي {الانتهاء} ({المتبقي
 {رابط_الدفع}`},
 d3:{
 formal:`🔔 *إشعار آلي | نظام {المتجر}*
-أهلاً *{الاسم}*، متبقي على انتهاء اشتراكك على *IBO Player* *{المتبقي}* فقط (ينتهي في {الانتهاء}).
+أهلاً *{الاسم}*، متبقي على انتهاء اشتراكك على *{التطبيق}* *{المتبقي}* فقط (ينتهي في {الانتهاء}).
 بيانات جهازك {الجهاز} محفوظة لدينا للتجديد عن بُعد دون انقطاع. رد بـ *تجديد*
 💳 أو استخدم الرابط: {رابط_الدفع}`,
 friendly:`هلا {الاسم} 🌙
@@ -529,15 +548,15 @@ short:`كيف الجودة عندك يا {الاسم}؟ قيّمها من 1 إل
 renewed:{
 formal:`✅ *تم تجديد اشتراكك بنجاح*
 مرحباً {الاسم}، تم تمديد اشتراكك على جهازك {الجهاز} حتى {الانتهاء}.
-يُرجى إغلاق تطبيق IBO Player وإعادة فتحه. شكراً لثقتك في {المتجر}.`,
+يُرجى إغلاق تطبيق {التطبيق} وإعادة فتحه. شكراً لثقتك في {المتجر}.`,
 friendly:`✅ *تم تجديد اشتراكك*
 أهلاً *{الاسم}*، تم تمديد اشتراكك على جهازك {الجهاز} حتى *{الانتهاء}*.
-سكّر IBO Player وافتحه من جديد. شكراً لثقتك في {المتجر} 🙏`,
+سكّر {التطبيق} وافتحه من جديد. شكراً لثقتك في {المتجر} 🙏`,
 hype:`🎉 *تم التجديد يا {الاسم}!* 🎉
 اشتراكك شغال لين *{الانتهاء}* 🔥
-سكّر IBO Player وافتحه وكمّل المتعة 🍿⚽
+سكّر {التطبيق} وافتحه وكمّل المتعة 🍿⚽
 شكراً إنك معنا 🙌`,
-short:`✅ تم التجديد لين {الانتهاء}. سكّر IBO Player وافتحه 👍`},
+short:`✅ تم التجديد لين {الانتهاء}. سكّر {التطبيق} وافتحه 👍`},
 trialEnd:{
 formal:`مرحباً {الاسم}،
 انتهت الفترة التجريبية، ونأمل أن تكون الخدمة قد نالت رضاك.
@@ -561,9 +580,10 @@ function tplSource(id,tone){const own=settings.templates?.[id]?.[tone];return (t
 function variants(id,tone){return tplSource(id,tone).split(/\n\s*-{3,}\s*\n/).map(s=>s.trim()).filter(Boolean);}
 function fillTpl(src,c){
   const s=settings,d=daysLeft(c);
-  const map={'{الاسم}':c.name||'','{الجهاز}':c.mac||'—','{الانتهاء}':nice(c.endDate),'{المتبقي}':daysWord(Math.max(d,0)),
+  const login=isIbo(c)?'':[s.serverUrl&&c.lineUser?`🌐 السيرفر: ${s.serverUrl}`:'',c.lineUser?`👤 Username: ${c.lineUser}`:'',c.linePass?`🔑 Password: ${c.linePass}`:''].filter(Boolean).join('\n');
+  const map={'{الاسم}':c.name||'','{الجهاز}':c.mac||screenLabel(c.screen),'{التطبيق}':appLabel(c.app),'{بيانات_الدخول}':login,'{الانتهاء}':nice(c.endDate),'{المتبقي}':daysWord(Math.max(d,0)),
     '{متى}':d<=0?'اليوم':'بكرة','{الباقة}':pkgLabel(c.pkg),'{المتجر}':s.store||'','{السيرفر}':s.server||'','{رابط_الدفع}':s.payLink||''};
-  return src.split('\n').filter(l=>!(l.includes('{رابط_الدفع}')&&!s.payLink)).join('\n')
+  return src.split('\n').filter(l=>!(l.includes('{رابط_الدفع}')&&!s.payLink)&&!(l.includes('{بيانات_الدخول}')&&!login)).join('\n')
     .replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).trim();
 }
 function tpl(id,c,tone,vi){const v=variants(id,tone||defaultTone());return v.length?fillTpl(v[(vi||0)%v.length],c):'';}
@@ -630,7 +650,7 @@ function row(c,extra){
   return `<div class="row">
     <button class="row-main" type="button" data-act="open" data-id="${esc(c.id)}">
       <span class="nm">${esc(c.name)} ${c.example?'<span class="tag ex">مثال</span>':''}</span>
-      <span class="meta">${extra?`<span>${esc(extra.why)}</span>`:`<span>${esc(pkgLabel(c.pkg))}</span>${isPaidScreen(c.screen)?`<span>${esc(screenLabel(c.screen))}</span>`:''}<span>ينتهي ${esc(nice(c.endDate))}</span>`}${macTail?`<span>MAC <span class="mono">${esc(macTail)}</span></span>`:''}</span>
+      <span class="meta">${extra?`<span>${esc(extra.why)}</span>`:`<span>${esc(pkgLabel(c.pkg))}</span>${isPaidScreen(c.screen)||!isIbo(c)?`<span>${esc(screenLabel(c.screen))}</span>`:''}<span>ينتهي ${esc(nice(c.endDate))}</span>`}${macTail?`<span>MAC <span class="mono">${esc(macTail)}</span></span>`:''}</span>
     </button>
     ${pill(d)}
     <div class="row-acts">
@@ -663,6 +683,7 @@ function renderList(){
     if(!q)return true;
     if(String(c.name||'').toLowerCase().includes(q))return true;
     if(String(c.notes||'').toLowerCase().includes(q))return true;
+    if(q.length>=3&&String(c.lineUser||'').toLowerCase().includes(q))return true;
     if(qd.length>=3&&String(c.phone||'').includes(qd.replace(/^0/,'')))return true;
     if(qh.length>=2&&String(c.mac||'').replace(/:/g,'').toLowerCase().includes(qh))return true;
     return false;
@@ -678,7 +699,7 @@ function renderNotice(){
 }
 function renderAll(){
   $('#brandName').textContent=settings.store||DEFAULTS.store;
-  $('#brandSub').textContent=`لوحة الزبائن · ${settings.server||DEFAULTS.server} · IBO Player`;
+  $('#brandSub').textContent=`لوحة الزبائن · ${settings.server||DEFAULTS.server}`;
   renderNotice();renderKpis();renderTasks();renderList();
   $('#fab').hidden=!canWrite;
   if(openId)renderDetail(false);
@@ -703,15 +724,18 @@ function renderDetail(force){
     <div class="sheet-head"><div><h3 id="detTitle">${esc(c.name)} ${c.example?'<span class="tag ex">مثال</span>':''}</h3><div style="margin-top:6px">${pill(d)}</div></div><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
     <div class="facts">
       ${fact('الجوال',prettyPhone(c.phone),c.phone?'+'+c.phone:'','mono',1)}
-      ${fact('MAC Address',c.mac,c.mac,'mono',1)}
-      ${fact('Device Key',c.deviceKey,c.deviceKey,'mono',1)}
+      ${isIbo(c)||c.mac?fact('MAC Address',c.mac,c.mac,'mono',1):''}
+      ${isIbo(c)||c.deviceKey?fact('Device Key',c.deviceKey,c.deviceKey,'mono',1):''}
+      ${!isIbo(c)||c.lineUser?fact('Username',c.lineUser,c.lineUser,'mono',1):''}
+      ${!isIbo(c)||c.linePass?fact('Password',c.linePass,c.linePass,'mono',1):''}
       ${fact('الباقة',pkgLabel(c.pkg))}
-      ${fact('نوع الشاشة',screenLabel(c.screen))}
+      ${fact('الجهاز',screenLabel(c.screen))}
+      ${fact('التطبيق',appLabel(c.app))}
       ${fact('تاريخ التفعيل',nice(c.startDate))}
       ${fact('تاريخ الانتهاء',nice(c.endDate))}
       ${fact('عدد التجديدات',String(pays.filter(p=>p.kind==='renew').length))}
       ${fact('إجمالي اللي دفعه',`${Math.round(total).toLocaleString('en-US')} ${settings.currency||''}`)}
-      ${fact('مين أحاله',c.referredBy||'—','','',1)}
+      ${fact('مين أحاله',c.referredBy||'—')}
     </div>
     ${c.notes?`<div class="notes">${esc(c.notes)}</div>`:''}
     <div class="sec">
@@ -760,6 +784,7 @@ async function copyText(v,btn){
 
 /* ---------- form ---------- */
 function fillPkgSelect(){
+  $('#f_app').innerHTML=APPS.map(a=>`<option value="${a.id}">${a.label}</option>`).join('');
   $('#f_screen').innerHTML=SCREENS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('');
   $('#f_pkg').innerHTML=PKGS.map(p=>`<option value="${p.id}">${p.label}</option>`).join('');
   $('#priceFields').innerHTML=PKGS.map(p=>`<div class="field"><label for="pr_${p.id}">${p.label}</label><input id="pr_${p.id}" class="ltr num" inputmode="decimal"></div>`).join('');
@@ -779,7 +804,7 @@ function openForm(c){
   $('#pasteBox').hidden=!!c;$('#amountField').hidden=!!c;
   $('#f_paste').value='';$('#f_name').value=c?.name||'';$('#f_phone').value=c?.phone?'+'+c.phone:'';
   $('#f_mac').value=c?.mac||'';$('#f_key').value=c?.deviceKey||'';$('#f_ref').value=c?.referredBy||'';$('#f_notes').value=c?.notes||'';
-  $('#f_pkg').value=c?.pkg||'12m';$('#f_screen').value=c?.screen||'android';$('#f_start').value=c?.startDate||today();$('#f_end').value=c?.endDate||'';
+  $('#f_pkg').value=c?.pkg||'12m';$('#f_screen').value=c?.screen||'android';$('#f_app').value=c?.app||'ibo';$('#f_luser').value=c?.lineUser||'';$('#f_lpass').value=c?.linePass||'';syncAppFields();$('#f_start').value=c?.startDate||today();$('#f_end').value=c?.endDate||'';
   $('#f_amount').value=c?'':(amountFor('12m','android')||'');
   $('#formErr').hidden=true;$('#h_mac').textContent='';$('#h_mac').className='hint';
   $('#h_phone').textContent='يتحول تلقائياً للصيغة الدولية';$('#h_phone').className='hint';
@@ -806,7 +831,7 @@ function checkPhone(){
 async function saveForm(e){
   e.preventDefault();if(!db||!canWrite)return;
   const err=$('#formErr');err.hidden=true;
-  const name=$('#f_name').value.trim();const phone=checkPhone();const macFine=checkMac();
+  const name=$('#f_name').value.trim();const phone=checkPhone();const macFine=$('#f_app').value==='ibo'?checkMac():true;
   const start=$('#f_start').value,end=$('#f_end').value;
   const fail=m=>{err.textContent=m;err.hidden=false;};
   if(!name)return fail('اكتب اسم الزبون');
@@ -814,7 +839,7 @@ async function saveForm(e){
   if(!macFine)return fail('صحح الـ MAC أو امسحه');
   if(!start||!end)return fail('حدد تاريخ التفعيل والانتهاء');
   if(end<start)return fail('تاريخ الانتهاء قبل تاريخ التفعيل');
-  const base={name,phone,mac:fmtMac($('#f_mac').value),deviceKey:toLatin($('#f_key').value).trim(),pkg:$('#f_pkg').value,screen:$('#f_screen').value,
+  const base={name,phone,mac:fmtMac($('#f_mac').value),deviceKey:toLatin($('#f_key').value).trim(),pkg:$('#f_pkg').value,screen:$('#f_screen').value,app:$('#f_app').value,lineUser:$('#f_luser').value.trim(),linePass:$('#f_lpass').value.trim(),
     startDate:start,endDate:end,notes:$('#f_notes').value.trim(),referredBy:$('#f_ref').value.trim()};
   const btn=$('#btnSave');btn.disabled=true;
   try{
@@ -907,7 +932,9 @@ function setTab(t){tab=t;$('#tabTasks').setAttribute('aria-selected',t==='tasks'
 $('#custForm').addEventListener('submit',saveForm);
 const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value)||'';};
 $('#f_pkg').addEventListener('change',()=>{endTouched=false;updateEnd();refreshAmount();});
-$('#f_screen').addEventListener('change',()=>{updateEnd();refreshAmount();});
+function syncAppFields(){const ibo=$('#f_app').value==='ibo';$('#iboFields').hidden=!ibo;if(!ibo){$('#h_mac').textContent='';}}
+$('#f_screen').addEventListener('change',()=>{const s=SCREENS.find(x=>x.id===$('#f_screen').value);if(s)$('#f_app').value=s.app;syncAppFields();updateEnd();refreshAmount();});
+$('#f_app').addEventListener('change',syncAppFields);
 $('#f_start').addEventListener('change',()=>{endTouched=false;updateEnd();});
 $('#f_end').addEventListener('change',()=>{endTouched=true;});
 $('#f_mac').addEventListener('blur',checkMac);
@@ -917,12 +944,14 @@ $('#f_paste').addEventListener('input',e=>{
   const r=parseMsg(e.target.value);
   if(r.mac){$('#f_mac').value=r.mac;checkMac();}
   if(r.deviceKey)$('#f_key').value=r.deviceKey;
+  if(r.lineUser)$('#f_luser').value=r.lineUser;
+  if(r.linePass)$('#f_lpass').value=r.linePass;
   if(r.phone){$('#f_phone').value=r.phone;checkPhone();}
 });
 
 /* ---------- settings ---------- */
 function openSettings(){
-  $('#s_store').value=settings.store||'';$('#s_server').value=settings.server||'';$('#s_pay').value=settings.payLink||'';
+  $('#s_store').value=settings.store||'';$('#s_server').value=settings.server||'';$('#s_pay').value=settings.payLink||'';$('#s_surl').value=settings.serverUrl||'';
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
   for(const p of PKGS)$('#pr_'+p.id).value=priceOf(p.id)||'';
   $('#s_fee').value=settings.screenFee??35;
@@ -934,7 +963,7 @@ function openSettings(){
 $('#setForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!db||!canWrite)return;
   const prices={};for(const p of PKGS)prices[p.id]=Number(toLatin($('#pr_'+p.id).value).replace(/[^\d.]/g,''))||0;
-  const next={store:$('#s_store').value.trim()||DEFAULTS.store,server:$('#s_server').value.trim()||DEFAULTS.server,payLink:$('#s_pay').value.trim(),
+  const next={store:$('#s_store').value.trim()||DEFAULTS.store,server:$('#s_server').value.trim()||DEFAULTS.server,payLink:$('#s_pay').value.trim(),serverUrl:$('#s_surl').value.trim(),
     cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly',templates:settings.templates||{}};
   $('#btnSetSave').disabled=true;
   try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');}
@@ -1002,16 +1031,17 @@ function errText(ex,fallback){
   if(/Invalid login credentials/i.test(m))return 'الإيميل أو كلمة السر غلط';
   if(/Email not confirmed/i.test(m))return 'الإيميل مو مفعّل. فعّله من Supabase أو من رسالة التفعيل';
   if(/rate limit|too many/i.test(m))return 'محاولات كثيرة، استنى شوي وجرّب';
+  if(/column .* does not exist|schema cache|violates check constraint/i.test(m))return 'قاعدة البيانات تحتاج تحديث: شغّل ملف schema.sql مرة ثانية في Supabase (SQL Editor)';
   if(/row-level security|permission denied/i.test(m))return 'حسابك ما عنده صلاحية على هالعملية';
   if(/Failed to fetch|NetworkError|network/i.test(m))return 'ما فيه اتصال بالإنترنت';
   return fallback;
 }
 const COLMAP=[['id','id'],['name','name'],['phone','phone'],['mac','mac'],['deviceKey','device_key'],['screen','screen'],['pkg','pkg'],
   ['startDate','start_date'],['endDate','end_date'],['notes','notes'],['referredBy','referred_by'],['qualityDone','quality_done'],
-  ['sent','sent'],['payments','payments'],['example','example']];
-function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
+  ['sent','sent'],['payments','payments'],['example','example'],['app','app'],['lineUser','line_user'],['linePass','line_pass']];
+function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.app=c.app||'ibo';c.lineUser=c.lineUser||'';c.linePass=c.linePass||'';c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
 function toRow(c){const r={};for(const [k,col] of COLMAP){if(c[k]!==undefined)r[col]=c[k];}
-  for(const k of ['phone','mac','device_key','notes','referred_by','screen'])if(r[k]==null)r[k]='';return r;}
+  for(const k of ['phone','mac','device_key','notes','referred_by','screen','line_user','line_pass'])if(r[k]==null)r[k]='';if(!r.app)r.app='ibo';return r;}
 const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
 function deepMerge(a,b){const o={...a};for(const k of Object.keys(b)){o[k]=isObj(b[k])&&isObj(a[k])?deepMerge(a[k],b[k]):b[k]}return o}
 const must=({data,error})=>{if(error)throw error;return data;};
