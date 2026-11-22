@@ -130,6 +130,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .scrim{position:fixed;inset:0;background:var(--scrim);z-index:40;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--surface);width:100%;max-width:580px;max-height:92dvh;overflow:auto;border-radius:18px 18px 0 0;box-shadow:var(--shadow);padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
 @media (min-width:700px){.scrim{align-items:center;padding:24px}.sheet{border-radius:18px;padding:22px 24px}}
+.sheet>*{flex-shrink:0}
 .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .sheet-head h3{font-family:var(--font-display);font-weight:600;font-size:1.2rem;margin:0;text-wrap:balance}
 .x{border:0;background:var(--surface-2);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:1.2rem;line-height:1;flex:none}
@@ -162,6 +163,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .fact div{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .fact strong{font-weight:600;overflow-wrap:anywhere}
 .fact div{flex-wrap:wrap}.fact strong.mono{font-size:.86rem;white-space:nowrap}
+.fact.wide{grid-column:1/-1}.fact.wide div{flex-wrap:nowrap}.fact.wide strong.mono{font-size:.95rem}
+.tone-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tone-row>span{font-size:.82rem;color:var(--muted);font-weight:600}
+.var-chip{font-family:var(--font-body);font-size:.8rem}
+.preview{white-space:pre-wrap;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:.9rem;line-height:1.6}
 .copy{border:0;background:var(--surface-2);border-radius:7px;padding:3px 8px;font-size:.76rem;font-weight:600;cursor:pointer;color:var(--muted);flex:none}
 .sec{display:flex;flex-direction:column;gap:10px}
 .sec h4{margin:0;font-family:var(--font-display);font-weight:600;font-size:1rem}
@@ -296,11 +301,33 @@ button,input,select,textarea{font:inherit;color:inherit}
           <div class="field"><label for="s_cc">مفتاح الدولة الافتراضي</label><input id="s_cc" class="ltr num" inputmode="numeric" placeholder="966"></div>
           <div class="field"><label for="s_cur">العملة</label><input id="s_cur" placeholder="ر.س"></div>
         </div>
+        <div class="sec"><h4>رسائل الواتساب</h4>
+          <div class="grid2"><div class="field"><label for="s_tone">الأسلوب الافتراضي</label><select id="s_tone"></select></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="button" data-act="editTpl" data-tpl="activate">✏️ تعديل قوالب الرسائل</button></div></div></div>
         <div class="sec"><h4>أسعار الباقات</h4><div class="grid2" id="priceFields"></div>
           <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
         <div class="formerr" id="setErr" hidden></div>
         <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج</button></div>
       </form>
+    </div>
+  </div>
+
+  <!-- template editor -->
+  <div class="scrim" id="sheetTpl" hidden data-scrim>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="teTitle">
+      <div class="sheet-head"><h3 id="teTitle">قوالب الرسائل</h3><button class="x" type="button" data-act="teClose" aria-label="إغلاق">×</button></div>
+      <div class="sec"><h4>الرسالة</h4><div class="chips" id="te_tpls"></div></div>
+      <div class="sec"><h4>الأسلوب</h4><div class="chips" id="te_tones"></div></div>
+      <div class="field"><label for="te_text">النص</label><textarea class="msg" id="te_text" dir="auto"></textarea>
+        <span class="hint">تبغى أكثر من صيغة لنفس الرسالة؟ افصل بينها بسطر فيه <b>---</b> بس، واللوحة تنوّع بينها. هذا يحمي رقمك من الحظر لأن الرسائل ما تطلع متطابقة.</span></div>
+      <div class="sec"><h4>المتغيرات <span class="hint">(اضغط عشان تضيفها مكان المؤشر)</span></h4><div class="chips" id="te_vars"></div></div>
+      <div class="sec"><h4>معاينة</h4><div class="preview" id="te_prev"></div></div>
+      <div class="formerr" id="te_err" hidden></div>
+      <div class="form-foot">
+        <button class="btn primary" type="button" id="te_save">حفظ التعديلات</button>
+        <button class="btn ghost" type="button" data-act="teReset">رجوع للنص الأصلي</button>
+        <button class="btn ghost" type="button" data-act="teClose">إغلاق</button>
+      </div>
     </div>
   </div>
 
@@ -337,7 +364,7 @@ const SCREENS=[{id:'android',label:'أندرويد / TV Box'},{id:'lg',label:'ش
 const screenLabel=id=>(SCREENS.find(s=>s.id===id)||{label:'—'}).label;
 const isPaidScreen=id=>id==='lg'||id==='samsung';
 const pkgLabel=id=>(PKGS.find(p=>p.id===id)||{label:id||'—'}).label;
-const DEFAULTS={store:'عالم محمد تيفي',server:'سيرفر فولتشر',payLink:'',cc:'966',currency:'ر.س',screenFee:35,prices:{trial:0,'1m':0,'3m':0,'6m':0,'12m':0}};
+const DEFAULTS={store:'عالم محمد تيفي',server:'سيرفر فولتشر',payLink:'',cc:'966',currency:'ر.س',screenFee:35,tone:'friendly',templates:{},prices:{trial:0,'1m':0,'3m':0,'6m':0,'12m':0}};
 let settings=JSON.parse(JSON.stringify(DEFAULTS));
 
 /* ---------- dates ---------- */
@@ -391,21 +418,155 @@ const TPLS=[
   {id:'renewed',label:'تم التجديد'},
   {id:'trialEnd',label:'نهاية التجربة'}
 ];
-function tpl(id,c){
-  const s=settings,nm=c.name||'',mac=c.mac||'—',end=nice(c.endDate);
-  const pay=s.payLink?` أو أكمل الطلب عبر الرابط: ${s.payLink}`:'';
-  switch(id){
-    case 'activate':return `✨ *أهلاً بك في ${s.store} (${s.server})* ✨\nتم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر تطبيق *IBO Player* 🟢\n\n*الباقة:* ${s.server} | ${pkgLabel(c.pkg)}\n*الجهاز (MAC):* ${mac}\n*ينتهي في:* ${end}\n*الحالة:* مكتمل عن بُعد ✅\n\n*طريقة التشغيل:* أغلق تطبيق IBO Player وأعد فتحه وستعمل القنوات فوراً.`;
-    case 'd7':return `🔔 *إشعار | ${s.store}*\nأهلاً *${nm}*، باقي أسبوع تقريباً على انتهاء اشتراكك على *IBO Player* (ينتهي في ${end}).\nبيانات جهازك ${mac} محفوظة لدينا، والتجديد يتم عن بُعد بدون ما ترسل أي أكواد. رد بـ *"تجديد"*${pay}.`;
-    case 'd3':return `🔔 *إشعار آلي | نظام ${s.store}*\nأهلاً *${nm}*، متبقي على انتهاء اشتراكك على *IBO Player* *3 أيام* فقط (ينتهي في ${end}).\nبيانات جهازك ${mac} محفوظة لدينا للتجديد عن بُعد دون انقطاع. رد بـ *"تجديد"*${pay}.`;
-    case 'd1':return `⏳ *تذكير أخير | اشتراكك ينتهي ${daysLeft(c)<=0?'اليوم':'غداً'}!*\nمرحباً *${nm}*، سيتوقف اشتراكك ${daysLeft(c)<=0?'اليوم':'غداً'} ${end}. للتجديد الفوري عن بُعد على نفس جهازك ${mac}، رد بـ *"تجديد"*${pay}.`;
-    case 'expired':return `مرحباً *${nm}* 👋\nانتهى اشتراكك في ${s.store} بتاريخ ${end}.\nجهازك ${mac} لسا محفوظ عندنا، ونرجع لك القنوات خلال دقائق بدون ما ترسل الأكواد مرة ثانية. رد بـ *"تجديد"*${pay}.`;
-    case 'quality':return `أهلاً *${nm}* 🌟\nصار لك يومين مع ${s.store}، كيف جودة البث عندك؟\nقيّمها من 1 إلى 5، وإذا فيه تقطيع أو قناة ما تشتغل علمنا ونحلها لك على طول.`;
-    case 'renewed':return `✅ *تم تجديد اشتراكك بنجاح*\nأهلاً *${nm}*، تم تمديد اشتراكك على جهازك ${mac} حتى *${end}*.\nأغلق IBO Player وافتحه من جديد. شكراً لثقتك في ${s.store} 🙏`;
-    case 'trialEnd':return `أهلاً *${nm}* 👋\nخلصت فترة التجربة، وش رأيك في الجودة؟\nإذا عجبتك نفعّل لك الاشتراك على نفس جهازك ${mac} خلال دقائق بدون ما ترسل الأكواد مرة ثانية. رد بـ *"اشتراك"*${pay}.`;
-  }
-  return '';
+const TONES=[{id:'friendly',label:'ودّي'},{id:'formal',label:'رسمي'},{id:'hype',label:'حماسي 🔥'},{id:'short',label:'مختصر'}];
+const toneLabel=id=>(TONES.find(t=>t.id===id)||TONES[0]).label;
+const VARS=[['{الاسم}','الاسم'],['{الجهاز}','MAC'],['{الانتهاء}','تاريخ الانتهاء'],['{المتبقي}','الأيام الباقية'],['{متى}','اليوم/بكرة'],['{الباقة}','الباقة'],['{المتجر}','اسم المتجر'],['{السيرفر}','السيرفر'],['{رابط_الدفع}','رابط الدفع']];
+const DEFAULT_TPLS={
+activate:{
+formal:`✨ *أهلاً بك في {المتجر} ({السيرفر})* ✨
+تم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر تطبيق *IBO Player* 🟢
+
+*الباقة:* {السيرفر} | {الباقة}
+*الجهاز (MAC):* {الجهاز}
+*ينتهي في:* {الانتهاء}
+*الحالة:* مكتمل عن بُعد ✅
+
+*طريقة التشغيل:* أغلق تطبيق IBO Player وأعد فتحه وستعمل القنوات فوراً.`,
+friendly:`أهلاً {الاسم} 👋
+تم تفعيل اشتراكك في *{المتجر}* ✅
+
+📺 الباقة: {الباقة}
+🔢 الجهاز: {الجهاز}
+📅 ينتهي في: {الانتهاء}
+
+سكّر تطبيق IBO Player وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍`,
+hype:`🔥🔥 *مبروك {الاسم}!* 🔥🔥
+اشتراكك في *{المتجر}* صار شغّال 100% ⚡
+
+🏆 الباقة: *{الباقة}*
+📺 الجهاز: {الجهاز}
+⏳ لين: {الانتهاء}
+
+⚽ مباريات، 🎬 أفلام، 📡 قنوات… كلها صارت عندك!
+سكّر IBO Player وافتحه، واستمتع 🍿`,
+short:`✅ تم تفعيل اشتراكك يا {الاسم}
+الجهاز: {الجهاز}
+ينتهي: {الانتهاء}
+سكّر IBO Player وافتحه 👍`},
+d7:{
+formal:`🔔 *إشعار | {المتجر}*
+أهلاً {الاسم}، نود تذكيرك بأن اشتراكك ينتهي بعد {المتبقي} بتاريخ {الانتهاء}.
+بيانات جهازك {الجهاز} محفوظة لدينا، والتجديد يتم عن بُعد دون الحاجة لإرسال أي أكواد.
+للتجديد رد بـ *تجديد*
+💳 أو عبر الرابط: {رابط_الدفع}`,
+friendly:`هلا {الاسم} 👋
+حبينا نذكرك إن اشتراكك باقي له {المتبقي} (ينتهي {الانتهاء}).
+جهازك محفوظ عندنا، والتجديد ما ياخذ دقيقة ومن غير ما ترسل شي. تبغى نجدد لك؟ رد بـ *تجديد* 🙌
+💳 {رابط_الدفع}`,
+hype:`⏰ *{الاسم}! باقي {المتبقي} بس!*
+لا تخلي المباريات تفوتك ⚽🔥
+جدّد الحين وخلك مكمّل بدون أي انقطاع 💪
+جهازك {الجهاز} جاهز عندنا، رد بـ *تجديد* ونخلصك في دقيقة ⚡
+💳 {رابط_الدفع}`,
+short:`تذكير: اشتراكك ينتهي {الانتهاء} ({المتبقي}). للتجديد رد *تجديد* 🔁
+{رابط_الدفع}`},
+d3:{
+formal:`🔔 *إشعار آلي | نظام {المتجر}*
+أهلاً *{الاسم}*، متبقي على انتهاء اشتراكك على *IBO Player* *{المتبقي}* فقط (ينتهي في {الانتهاء}).
+بيانات جهازك {الجهاز} محفوظة لدينا للتجديد عن بُعد دون انقطاع. رد بـ *تجديد*
+💳 أو استخدم الرابط: {رابط_الدفع}`,
+friendly:`هلا {الاسم} 🌙
+باقي على اشتراكك {المتبقي} بس (ينتهي {الانتهاء}).
+نجدد لك على نفس الجهاز بدون ما توقف القنوات، رد بـ *تجديد* 👍
+💳 {رابط_الدفع}`,
+hype:`🚨 *باقي {المتبقي} يا {الاسم}!* 🚨
+لا توقف عليك القنوات في نص المباراة 😱⚽
+رد بـ *تجديد* وخلها شغالة على طول 🔥
+💳 {رابط_الدفع}`,
+short:`⚠️ باقي {المتبقي} على اشتراكك ({الانتهاء}). رد *تجديد* للتجديد.
+{رابط_الدفع}`},
+d1:{
+formal:`⏳ *تذكير أخير | اشتراكك ينتهي {متى}!*
+مرحباً *{الاسم}*، سيتوقف اشتراكك {متى} {الانتهاء}. للتجديد الفوري عن بُعد على نفس جهازك {الجهاز}، رد بـ *تجديد*
+💳 أو أكمل الطلب عبر: {رابط_الدفع}`,
+friendly:`{الاسم} 🙏
+اشتراكك ينتهي {متى} ({الانتهاء}). عشان ما تنقطع عنك القنوات، رد بـ *تجديد* ونجدد لك على نفس الجهاز في دقيقة.
+💳 {رابط_الدفع}`,
+hype:`⏳🔥 *آخر فرصة يا {الاسم}!*
+اشتراكك يخلص *{متى}*!
+جدد الحين وخلك مع الحدث ⚽📺
+رد بـ *تجديد* ⚡
+💳 {رابط_الدفع}`,
+short:`⏳ اشتراكك ينتهي {متى}. رد *تجديد* 🔁
+{رابط_الدفع}`},
+expired:{
+formal:`مرحباً {الاسم}،
+نحيطك علماً بأن اشتراكك في {المتجر} انتهى بتاريخ {الانتهاء}.
+بيانات جهازك {الجهاز} ما زالت محفوظة لدينا، ويمكننا إعادة تفعيل الخدمة خلال دقائق.
+للتجديد رد بـ *تجديد*
+💳 أو عبر الرابط: {رابط_الدفع}`,
+friendly:`هلا {الاسم} 👋 وحشتنا!
+اشتراكك خلص {الانتهاء}، بس جهازك لسا محفوظ عندنا.
+نرجع لك القنوات خلال دقائق، رد بـ *تجديد* 🤍
+💳 {رابط_الدفع}`,
+hype:`📺 *{الاسم}، الشاشة تناديك!* 😄
+اشتراكك انتهى وفاتك كثير 🔥⚽🎬
+رجّع كل شي في دقيقة على نفس جهازك، رد بـ *تجديد* ⚡
+💳 {رابط_الدفع}`,
+short:`اشتراكك انتهى {الانتهاء}. نرجعه لك بدقيقة، رد *تجديد*.
+{رابط_الدفع}`},
+quality:{
+formal:`مرحباً {الاسم}،
+نأمل أن تكون الخدمة في {المتجر} عند حسن ظنك.
+نرجو تقييم جودة البث من 1 إلى 5، وفي حال وجود أي ملاحظة يسعدنا مساعدتك فوراً.`,
+friendly:`أهلاً *{الاسم}* 🌟
+صار لك يومين مع {المتجر}، كيف جودة البث عندك؟
+قيّمها من 1 إلى 5، وإذا فيه تقطيع أو قناة ما تشتغل علمنا ونحلها لك على طول.`,
+hype:`🌟 *{الاسم}، كيف الوضع؟* 🌟
+صار لك يومين معنا، عسى القنوات طايرة عندك 🚀
+قيّمنا من 1 إلى 5 ⭐، ولو فيه أي شي نحله لك على طول 💪`,
+short:`كيف الجودة عندك يا {الاسم}؟ قيّمها من 1 إلى 5 ⭐`},
+renewed:{
+formal:`✅ *تم تجديد اشتراكك بنجاح*
+مرحباً {الاسم}، تم تمديد اشتراكك على جهازك {الجهاز} حتى {الانتهاء}.
+يُرجى إغلاق تطبيق IBO Player وإعادة فتحه. شكراً لثقتك في {المتجر}.`,
+friendly:`✅ *تم تجديد اشتراكك*
+أهلاً *{الاسم}*، تم تمديد اشتراكك على جهازك {الجهاز} حتى *{الانتهاء}*.
+سكّر IBO Player وافتحه من جديد. شكراً لثقتك في {المتجر} 🙏`,
+hype:`🎉 *تم التجديد يا {الاسم}!* 🎉
+اشتراكك شغال لين *{الانتهاء}* 🔥
+سكّر IBO Player وافتحه وكمّل المتعة 🍿⚽
+شكراً إنك معنا 🙌`,
+short:`✅ تم التجديد لين {الانتهاء}. سكّر IBO Player وافتحه 👍`},
+trialEnd:{
+formal:`مرحباً {الاسم}،
+انتهت الفترة التجريبية، ونأمل أن تكون الخدمة قد نالت رضاك.
+يمكننا تفعيل الاشتراك على جهازك {الجهاز} خلال دقائق دون الحاجة لإرسال البيانات مرة أخرى.
+للاشتراك رد بـ *اشتراك*
+💳 أو عبر الرابط: {رابط_الدفع}`,
+friendly:`أهلاً *{الاسم}* 👋
+خلصت فترة التجربة، وش رأيك في الجودة؟
+إذا عجبتك نفعّل لك الاشتراك على نفس جهازك {الجهاز} خلال دقائق بدون ما ترسل الأكواد مرة ثانية. رد بـ *اشتراك*
+💳 {رابط_الدفع}`,
+hype:`🔥 *{الاسم}، خلصت التجربة!* 🔥
+شفت الجودة بعينك 😎
+فعّل اشتراكك الحين على نفس الجهاز وخلك مع كل المباريات والأفلام ⚽🎬
+رد بـ *اشتراك* ⚡
+💳 {رابط_الدفع}`,
+short:`خلصت التجربة يا {الاسم}. تبغى نفعّل الاشتراك؟ رد *اشتراك* ✅
+{رابط_الدفع}`}
+};
+const defaultTone=()=>TONES.some(t=>t.id===settings.tone)?settings.tone:'friendly';
+function tplSource(id,tone){const own=settings.templates?.[id]?.[tone];return (typeof own==='string'&&own.trim())?own:(DEFAULT_TPLS[id]?.[tone]||DEFAULT_TPLS[id]?.friendly||'');}
+function variants(id,tone){return tplSource(id,tone).split(/\n\s*-{3,}\s*\n/).map(s=>s.trim()).filter(Boolean);}
+function fillTpl(src,c){
+  const s=settings,d=daysLeft(c);
+  const map={'{الاسم}':c.name||'','{الجهاز}':c.mac||'—','{الانتهاء}':nice(c.endDate),'{المتبقي}':daysWord(Math.max(d,0)),
+    '{متى}':d<=0?'اليوم':'بكرة','{الباقة}':pkgLabel(c.pkg),'{المتجر}':s.store||'','{السيرفر}':s.server||'','{رابط_الدفع}':s.payLink||''};
+  return src.split('\n').filter(l=>!(l.includes('{رابط_الدفع}')&&!s.payLink)).join('\n')
+    .replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).trim();
 }
+function tpl(id,c,tone,vi){const v=variants(id,tone||defaultTone());return v.length?fillTpl(v[(vi||0)%v.length],c):'';}
 const waUrl=(phone,text)=>`https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 const sentKey=(id,c)=>`${id}@${c.endDate}`;
 function suggestTpl(c){
@@ -437,7 +598,7 @@ function tasksFor(c){
 /* ---------- state ---------- */
 let db=null,canWrite=true,canDelete=true,customers=[],loaded=false,loadTimer=null;
 let tab='tasks',filter='all',query='';
-let openId=null,detailTpl=null,detailTplFor=null,renewPkg=null,renewAmt='',lastDetailSig='';
+let openId=null,detailTpl=null,detailTone=null,detailVar=0,detailTplFor=null,renewPkg=null,renewAmt='',lastDetailSig='';
 let editingId=null,endTouched=false;
 
 const FILTERS=[
@@ -473,7 +634,7 @@ function row(c,extra){
     </button>
     ${pill(d)}
     <div class="row-acts">
-      ${phone?`<a class="btn wa sm" href="${esc(waUrl(phone,tpl(t,c)))}" target="_blank" rel="noopener" data-act="wa" data-id="${esc(c.id)}" data-tpl="${t}">واتساب</a>`:''}
+      ${phone?`<a class="btn wa sm" href="${esc(waUrl(phone,tpl(t,c,null,Math.floor(Math.random()*9))))}" target="_blank" rel="noopener" data-act="wa" data-id="${esc(c.id)}" data-tpl="${t}">واتساب</a>`:''}
       ${extra&&canWrite?`<button class="btn sm ghost" type="button" data-act="done" data-id="${esc(c.id)}" data-tpl="${t}" title="علّمها كمنتهية بدون إرسال">تم ✓</button>`:''}
     </div>
   </div>`;
@@ -527,38 +688,42 @@ function renderAll(){
 function renderDetail(force){
   const c=customers.find(x=>x.id===openId);
   if(!c){closeAll();return}
-  const sig=JSON.stringify(c)+JSON.stringify(settings)+renewPkg+detailTpl;
+  const sig=JSON.stringify(c)+JSON.stringify(settings)+renewPkg+detailTpl+detailTone+detailVar;
   if(!force&&sig===lastDetailSig)return;
-  const keepMsg=!force&&detailTplFor===detailTpl?$('#msgText')?.value:null;
+  const tone=detailTone||defaultTone();const msgKey=detailTpl+'|'+tone+'|'+detailVar;
+  const keepMsg=!force&&detailTplFor===msgKey?$('#msgText')?.value:null;
   lastDetailSig=sig;
   if(!detailTpl)detailTpl=suggestTpl(c);
   const d=daysLeft(c),pays=c.payments||[];const total=pays.reduce((a,p)=>a+(Number(p.amount)||0),0);
   const sentAt=detailTpl==='quality'?(c.qualityDone?'تم':null):(c.sent||{})[sentKey(detailTpl,c)];
-  const msg=tpl(detailTpl,c);
+  const msg=tpl(detailTpl,c,tone,detailVar);const nVar=variants(detailTpl,tone).length;
   const renewFrom=d>=0?c.endDate:today();
-  const fact=(lbl,val,copy,cls)=>`<div class="fact"><span>${lbl}</span><div><strong class="${cls||''}">${esc(val||'—')}</strong>${copy&&val?`<button class="copy" type="button" data-act="copy" data-v="${esc(copy)}">نسخ</button>`:''}</div></div>`;
+  const fact=(lbl,val,copy,cls,wide)=>`<div class="fact${wide?' wide':''}"><span>${lbl}</span><div><strong class="${cls||''}">${esc(val||'—')}</strong>${copy&&val?`<button class="copy" type="button" data-act="copy" data-v="${esc(copy)}">نسخ</button>`:''}</div></div>`;
   $('#detailBody').innerHTML=`
     <div class="sheet-head"><div><h3 id="detTitle">${esc(c.name)} ${c.example?'<span class="tag ex">مثال</span>':''}</h3><div style="margin-top:6px">${pill(d)}</div></div><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
     <div class="facts">
-      ${fact('الجوال',prettyPhone(c.phone),c.phone?'+'+c.phone:'','mono')}
-      ${fact('MAC Address',c.mac,c.mac,'mono')}
-      ${fact('Device Key',c.deviceKey,c.deviceKey,'mono')}
+      ${fact('الجوال',prettyPhone(c.phone),c.phone?'+'+c.phone:'','mono',1)}
+      ${fact('MAC Address',c.mac,c.mac,'mono',1)}
+      ${fact('Device Key',c.deviceKey,c.deviceKey,'mono',1)}
       ${fact('الباقة',pkgLabel(c.pkg))}
       ${fact('نوع الشاشة',screenLabel(c.screen))}
       ${fact('تاريخ التفعيل',nice(c.startDate))}
       ${fact('تاريخ الانتهاء',nice(c.endDate))}
       ${fact('عدد التجديدات',String(pays.filter(p=>p.kind==='renew').length))}
       ${fact('إجمالي اللي دفعه',`${Math.round(total).toLocaleString('en-US')} ${settings.currency||''}`)}
-      ${fact('مين أحاله',c.referredBy||'—')}
+      ${fact('مين أحاله',c.referredBy||'—','','',1)}
     </div>
     ${c.notes?`<div class="notes">${esc(c.notes)}</div>`:''}
     <div class="sec">
       <h4>أرسل رسالة واتساب</h4>
       <div class="chips">${TPLS.map(t=>`<button class="chip" type="button" data-act="tplPick" data-tpl="${t.id}" aria-pressed="${t.id===detailTpl}">${t.label}</button>`).join('')}</div>
+      <div class="tone-row"><span>الأسلوب:</span>${TONES.map(t=>`<button class="chip" type="button" data-act="tonePick" data-tone="${t.id}" aria-pressed="${t.id===tone}">${t.label}</button>`).join('')}</div>
       <textarea class="msg" id="msgText" aria-label="نص الرسالة">${esc(keepMsg??msg)}</textarea>
       <div class="msg-acts">
         ${c.phone?`<a class="btn wa" id="waLink" href="${esc(waUrl(c.phone,keepMsg??msg))}" target="_blank" rel="noopener" data-act="wa" data-id="${esc(c.id)}" data-tpl="${detailTpl}">افتح الواتساب</a>`:'<span class="hint">أضف رقم جوال عشان ترسل</span>'}
         <button class="btn" type="button" data-act="copyMsg">نسخ النص</button>
+        ${nVar>1?`<button class="btn ghost sm" type="button" data-act="nextVar">🔀 صيغة ثانية (${(detailVar%nVar)+1}/${nVar})</button>`:''}
+        <button class="btn ghost sm" type="button" data-act="editTpl">✏️ عدّل القالب</button>
         ${sentAt?`<span class="sent-note">✓ أُرسلت ${sentAt==='تم'?'':esc(nice(sentAt))}</span>`:''}
       </div>
     </div>
@@ -574,13 +739,13 @@ function renderDetail(force){
     ${pays.length?`<div class="sec"><h4>سجل الدفعات</h4><div class="hist">${pays.slice().reverse().map(p=>`<div><span>${p.kind==='renew'?'تجديد':'اشتراك جديد'} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><strong class="num">${esc(String(p.amount??0))} ${esc(settings.currency||'')}</strong></div>`).join('')}</div></div>`:''}
     ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button>${canDelete?`<button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button>`:''}</div>`:''}
   `;
-  detailTplFor=detailTpl;
+  detailTplFor=msgKey;
 }
 
 /* ---------- sheets ---------- */
 function show(id){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=s.id!==id);}
 function closeAll(){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=true);openId=null;renewPkg=null;detailTpl=null;lastDetailSig='';}
-function openDetail(id,tplId){openId=id;detailTpl=tplId||null;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
+function openDetail(id,tplId){openId=id;detailTpl=tplId||null;detailTone=null;detailVar=0;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
 
 let toastT=null;
 function toast(text,undo){
@@ -711,7 +876,15 @@ document.addEventListener('click',e=>{
     case 'done':markSent(id,t.dataset.tpl);toast('تمت');break;
     case 'copy':copyText(t.dataset.v);break;
     case 'copyMsg':copyText($('#msgText').value);break;
-    case 'tplPick':detailTpl=t.dataset.tpl;renderDetail(true);break;
+    case 'tplPick':detailTpl=t.dataset.tpl;detailVar=0;renderDetail(true);break;
+    case 'tonePick':detailTone=t.dataset.tone;detailVar=0;renderDetail(true);break;
+    case 'nextVar':detailVar++;renderDetail(true);break;
+    case 'editTpl':openTplEditor(t.dataset.tpl||detailTpl||'activate',detailTone||defaultTone(),openId);break;
+    case 'teTpl':teSwitch(t.dataset.tpl,teTone);break;
+    case 'teTone':teSwitch(teTpl,t.dataset.tone);break;
+    case 'teVar':teInsert(t.dataset.v);break;
+    case 'teReset':teResetText();break;
+    case 'teClose':teCloseSheet();break;
     case 'renewPick':{renewPkg=t.dataset.pkg;{const cc=customers.find(x=>x.id===openId);renewAmt=String(amountFor(renewPkg,cc?.screen)||'');};renderDetail(true);break}
     case 'renewCancel':renewPkg=null;renderDetail(true);break;
     case 'renewGo':doRenew();break;
@@ -753,6 +926,7 @@ function openSettings(){
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
   for(const p of PKGS)$('#pr_'+p.id).value=priceOf(p.id)||'';
   $('#s_fee').value=settings.screenFee??35;
+  $('#s_tone').innerHTML=TONES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');$('#s_tone').value=defaultTone();$('#s_tone').disabled=!canDelete;
   $('#setErr').hidden=true;
   const ro=!canDelete;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;
   show('sheetSettings');
@@ -761,11 +935,58 @@ $('#setForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!db||!canWrite)return;
   const prices={};for(const p of PKGS)prices[p.id]=Number(toLatin($('#pr_'+p.id).value).replace(/[^\d.]/g,''))||0;
   const next={store:$('#s_store').value.trim()||DEFAULTS.store,server:$('#s_server').value.trim()||DEFAULTS.server,payLink:$('#s_pay').value.trim(),
-    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices};
+    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly',templates:settings.templates||{}};
   $('#btnSetSave').disabled=true;
   try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');}
   catch(ex){$('#setErr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#setErr').hidden=false}
   finally{$('#btnSetSave').disabled=false}
+});
+
+/* ---------- template editor ---------- */
+let teTpl='activate',teTone='friendly',teReturn=null,teDrafts={};
+const teKey=(a,b)=>a+'|'+b;
+function teSample(){
+  return customers.find(x=>x.id===teReturn)||customers[0]||{name:'أبو فهد',mac:'00:1A:79:3C:4D:01',pkg:'12m',endDate:addPkg(today(),'3m')};
+}
+function teRender(){
+  $('#te_tpls').innerHTML=TPLS.map(t=>`<button class="chip" type="button" data-act="teTpl" data-tpl="${t.id}" aria-pressed="${t.id===teTpl}">${t.label}${settings.templates?.[t.id]&&Object.keys(settings.templates[t.id]).length?' •':''}</button>`).join('');
+  $('#te_tones').innerHTML=TONES.map(t=>`<button class="chip" type="button" data-act="teTone" data-tone="${t.id}" aria-pressed="${t.id===teTone}">${t.label}</button>`).join('');
+  $('#te_vars').innerHTML=VARS.map(([v,l])=>`<button class="chip var-chip" type="button" data-act="teVar" data-v="${v}">${l}</button>`).join('');
+  const k=teKey(teTpl,teTone);
+  $('#te_text').value=k in teDrafts?teDrafts[k]:tplSource(teTpl,teTone);
+  tePreview();
+  const ro=!canDelete;$('#te_text').readOnly=ro;$('#te_save').hidden=ro;
+  const e=$('#te_err');e.hidden=!ro;e.textContent=ro?'تقدر تشوف القوالب بس. تعديلها للمالك فقط.':'';
+}
+function tePreview(){
+  const src=$('#te_text').value.split(/\n\s*-{3,}\s*\n/)[0]||'';
+  $('#te_prev').textContent=fillTpl(src,teSample())||'—';
+}
+function teSwitch(tplId,tone){teDrafts[teKey(teTpl,teTone)]=$('#te_text').value;teTpl=tplId;teTone=tone;teRender();}
+function teInsert(v){
+  const ta=$('#te_text');if(ta.readOnly)return;
+  const s=ta.selectionStart??ta.value.length,e=ta.selectionEnd??s;
+  ta.value=ta.value.slice(0,s)+v+ta.value.slice(e);ta.focus();ta.selectionStart=ta.selectionEnd=s+v.length;
+  teDrafts[teKey(teTpl,teTone)]=ta.value;tePreview();
+}
+function teResetText(){const d=DEFAULT_TPLS[teTpl]?.[teTone]||'';$('#te_text').value=d;teDrafts[teKey(teTpl,teTone)]=d;tePreview();}
+function openTplEditor(tplId,tone,returnId){teTpl=tplId;teTone=tone;teReturn=returnId||null;teDrafts={};show('sheetTpl');teRender();}
+function teCloseSheet(){const back=teReturn;teReturn=null;teDrafts={};if(back&&customers.some(c=>c.id===back)){openId=back;show('sheetDetail');renderDetail(true);}else closeAll();}
+$('#te_text').addEventListener('input',()=>{teDrafts[teKey(teTpl,teTone)]=$('#te_text').value;tePreview();});
+$('#te_save').addEventListener('click',async()=>{
+  if(!db||!canDelete)return;
+  teDrafts[teKey(teTpl,teTone)]=$('#te_text').value;
+  const templates=JSON.parse(JSON.stringify(settings.templates||{}));
+  for(const [k,text] of Object.entries(teDrafts)){
+    const [id,tone]=k.split('|');const isDefault=text.trim()===(DEFAULT_TPLS[id]?.[tone]||'').trim()||!text.trim();
+    templates[id]=templates[id]||{};
+    if(isDefault)delete templates[id][tone];else templates[id][tone]=text;
+    if(!Object.keys(templates[id]).length)delete templates[id];
+  }
+  const btn=$('#te_save');btn.disabled=true;
+  try{const next={...settings,templates};await db.saveSettings(next);settings=next;teDrafts={};teRender();lastDetailSig='';toast('تم حفظ القوالب');}
+  catch(ex){const e=$('#te_err');e.textContent='ما قدرنا نحفظ: '+errText(ex,'جرّب مرة ثانية');e.hidden=false}
+  finally{btn.disabled=false}
 });
 
 /* ---------- boot ---------- */
