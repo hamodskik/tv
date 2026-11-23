@@ -179,44 +179,20 @@ begin
   return jsonb_build_object('linked', n_linked, 'dates_updated', n_dates, 'phones_added', n_phones, 'passwords_updated', n_pass);
 end $$;
 
--- ---------- المزامنة الكاملة لبانل واحد ----------
-create or replace function private.panel_sync(p_id text) returns jsonb
+-- يسحب كل صفحات الخطوط لحالة معيّنة (all / expired / disabled / banned) ويحفظها
+create or replace function private.panel_fetch(p private.panels, p_status text) returns int
 language plpgsql volatile as $$
-declare
-  p private.panels;
-  r extensions.http_response;
-  js jsonb;
-  pg int := 1;
-  total int := 0;
-  started timestamptz := clock_timestamp();
-  link jsonb;
-  v_credits numeric;
-  acc text;
-  n_lines int;
+declare r extensions.http_response; js jsonb; pg int := 1; total int := 0; n int := 0;
 begin
-  select * into p from private.panels where id = p_id;
-  if p.id is null or p.api_key = '' or p.base_url = '' then raise exception 'البانل مو مربوط (الرابط أو المفتاح ناقص)'; end if;
-
-  r := private.panel_get(p.base_url, p.api_key, '/account');
-  if r.status <> 200 then raise exception '%', private.panel_error(r); end if;
-  js := r.content::jsonb;
-  v_credits := (js->>'credits')::numeric;
-  acc := coalesce(js->>'username', '');
-
-  r := private.panel_get(p.base_url, p.api_key, '/packages?kind=line');
-  if r.status = 200 and jsonb_typeof(r.content::jsonb) = 'array' then
-    update private.panels set packages = r.content::jsonb where id = p_id;
-  end if;
-
   loop
-    r := private.panel_get(p.base_url, p.api_key, '/lines?status=all&per_page=100&page=' || pg);
+    r := private.panel_get(p.base_url, p.api_key, '/lines?status=' || p_status || '&per_page=100&page=' || pg);
     if r.status <> 200 then raise exception '%', private.panel_error(r); end if;
     js := r.content::jsonb;
     total := coalesce((js->>'total')::int, 0);
 
     insert into public.panel_lines as t (panel_id, line_id, username, password, fullname, package_id, expires_at,
         enabled, banned, is_trial, max_connections, active_connections, activates_on, playlist_host, phone_found, synced_at)
-    select p_id, (l->>'id')::bigint, coalesce(l->>'username', ''), coalesce(l->>'password', ''), coalesce(l->>'fullname', ''),
+    select p.id, (l->>'id')::bigint, coalesce(l->>'username', ''), coalesce(l->>'password', ''), coalesce(l->>'fullname', ''),
            nullif(l->>'package_id', '')::bigint, nullif(l->>'expires_at', '')::timestamptz,
            coalesce((l->>'enabled')::boolean, true), coalesce((l->>'banned')::boolean, false), coalesce((l->>'is_trial')::boolean, false),
            nullif(l->>'max_connections', '')::int, nullif(l->>'active_connections', '')::int,
@@ -231,18 +207,69 @@ begin
       active_connections = excluded.active_connections, activates_on = excluded.activates_on,
       playlist_host = excluded.playlist_host, phone_found = excluded.phone_found, synced_at = excluded.synced_at;
 
+    n := n + jsonb_array_length(coalesce(js->'data', '[]'::jsonb));
     exit when pg * 100 >= total or jsonb_array_length(coalesce(js->'data', '[]'::jsonb)) = 0 or pg >= 300;
     pg := pg + 1;
   end loop;
+  return n;
+end $$;
+
+-- ---------- المزامنة الكاملة لبانل واحد ----------
+create or replace function private.panel_sync(p_id text) returns jsonb
+language plpgsql volatile as $$
+declare
+  p private.panels;
+  r extensions.http_response;
+  js jsonb;
+  started timestamptz := clock_timestamp();
+  link jsonb;
+  v_credits numeric;
+  acc text;
+  acc_total int;
+  n_lines int;
+  st text;
+  extra_passes text[] := '{}';
+begin
+  select * into p from private.panels where id = p_id;
+  if p.id is null or p.api_key = '' or p.base_url = '' then raise exception 'البانل مو مربوط (الرابط أو المفتاح ناقص)'; end if;
+
+  r := private.panel_get(p.base_url, p.api_key, '/account');
+  if r.status <> 200 then raise exception '%', private.panel_error(r); end if;
+  js := r.content::jsonb;
+  v_credits := (js->>'credits')::numeric;
+  acc := coalesce(js->>'username', '');
+  acc_total := nullif(js->'lines'->>'total', '')::int;
+
+  r := private.panel_get(p.base_url, p.api_key, '/packages?kind=line');
+  if r.status = 200 and jsonb_typeof(r.content::jsonb) = 'array' then
+    update private.panels set packages = r.content::jsonb where id = p_id;
+  end if;
+
+  -- كل الخطوط
+  perform private.panel_fetch(p, 'all');
+  select count(*) into n_lines from public.panel_lines where panel_id = p_id and synced_at >= started;
+
+  -- لو البانل يقول عندك خطوط أكثر من اللي رجعت، نسحب المنتهية والموقوفة والمحظورة لحالها
+  if acc_total is null or n_lines < acc_total then
+    foreach st in array array['expired', 'disabled', 'banned'] loop
+      begin
+        perform private.panel_fetch(p, st);
+        extra_passes := extra_passes || st;
+      exception when others then null;
+      end;
+    end loop;
+  end if;
 
   -- الخطوط اللي انحذفت من البانل
   delete from public.panel_lines where panel_id = p_id and synced_at < started;
   select count(*) into n_lines from public.panel_lines where panel_id = p_id;
 
   link := private.panel_link(p_id);
-  link := link || jsonb_build_object('lines', n_lines,
+  link := link || jsonb_build_object('lines', n_lines, 'panel_total', acc_total, 'extra_passes', to_jsonb(extra_passes),
     'unlinked_active', (select count(*) from public.panel_lines where panel_id = p_id and customer_id is null
-                         and enabled and not banned and (expires_at is null or expires_at > now())));
+                         and enabled and not banned and (expires_at is null or expires_at > now())),
+    'unlinked_expired', (select count(*) from public.panel_lines where panel_id = p_id and customer_id is null
+                         and not (enabled and not banned and (expires_at is null or expires_at > now()))));
 
   update private.panels set credits = v_credits, account_name = acc, lines_total = n_lines,
     last_status = 'ok', last_error = '', last_result = link, last_sync_at = now(), updated_at = now()
