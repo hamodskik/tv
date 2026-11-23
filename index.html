@@ -434,6 +434,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
           <div><button class="btn sm" type="button" data-act="supAdd">+ أضف رقم</button></div></div>
         <div class="formerr" id="setErr" hidden></div>
         <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج</button></div>
+        <span class="hint" id="appVersion"></span>
       </form>
     </div>
   </div>
@@ -567,6 +568,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
+const APP_VERSION='1.9 (بحث البانل ثابت)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1255,6 +1257,7 @@ $('#f_paste').addEventListener('input',e=>{
 
 /* ---------- settings ---------- */
 function openSettings(){
+  $('#appVersion').textContent='إصدار اللوحة: '+APP_VERSION;
   $('#s_store').value=settings.store||'';$('#s_pay').value=settings.payLink||'';
   setSrv=JSON.parse(JSON.stringify(getServers()));setDefSrv=defaultServerId();setSup=JSON.parse(JSON.stringify(settings.supportNumbers||[]));renderSrvEditor();
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
