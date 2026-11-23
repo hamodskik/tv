@@ -1209,11 +1209,11 @@ document.addEventListener('click',e=>{
     case 'pnTest':panelTest();break;
     case 'pnDelete':panelDelete();break;
     case 'pnSync':panelSync(t.dataset.sid);break;
-    case 'plFilter':plFilter=t.dataset.f;renderPanel();break;
+    case 'plFilter':plFilter=t.dataset.f;plShow=60;renderPanelResults();break;
     case 'plImport':panelImport(t.dataset.sid,[Number(t.dataset.line)]);break;
     case 'plImportAll':{const sid=t.dataset.sid,exp=t.dataset.kind==='expired';const ids=panelLines.filter(l=>l.panel_id===sid&&!l.customer_id&&(exp?!lineActive(l):lineActive(l))).map(l=>l.line_id);
       askConfirm(`بنضيف ${ids.length} خط ${exp?'منتهي أو موقوف':'فعّال'} كزبائن جدد. الاسم من اسم الخط، والجوال لو مكتوب فيه. ${exp?'بيطلعون في "منتهي"، واللي انتهى خلال آخر أسبوعين بيطلع في مهام "وحشتنا". ':''}اربط زبائنك الحاليين قبل عشان ما يتكررون.`,'نعم، استورد',()=>panelImport(sid,ids));break}
-    case 'plLinkOpen':plLinking=plLinking===t.dataset.key?null:t.dataset.key;renderPanel();break;
+    case 'plLinkOpen':plLinking=plLinking===t.dataset.key?null:t.dataset.key;renderPanelResults();break;
     case 'plLinkGo':panelLinkTo(t.dataset.sid,t.dataset.user,$('#plLinkSel').value);break;
     case 'logout':logout();break;
     case 'clearEx':{const ids=customers.filter(c=>c.example).map(c=>c.id);askDelete(ids,`بنحذف ${ids.length} زبائن تجريبيين. زبائنك الحقيقيين ما يتأثرون.`);break}
@@ -1222,7 +1222,7 @@ document.addEventListener('click',e=>{
 $('#cfYes').addEventListener('click',async()=>{if(pendingAction){const fn=pendingAction;pendingAction=null;$('#cfYes').disabled=true;try{await fn()}finally{$('#cfYes').disabled=false}}else doDelete();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 document.addEventListener('input',e=>{
-  if(e.target.id==='plq'){plQuery=e.target.value;renderPanelLines();return}
+  if(e.target.id==='plq'){plQuery=e.target.value;plShow=60;renderPanelResults();return}
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
   if(e.target.id==='r_amt')renewAmt=e.target.value;
   if(e.target.id==='q'){query=e.target.value;renderList();}
@@ -1680,39 +1680,53 @@ function renderPanel(){
       ${res.panel_total!=null&&res.panel_total>lines.length?`<div class="status-line err">البانل يقول عندك ${res.panel_total} خط، ووصلنا ${lines.length} بس. اضغط "مزامنة الحين"، ولو بقى الفرق كلّمني.</div>`:''}
       ${res.dates_updated||res.phones_added||res.passwords_updated?`<span class="hint">آخر مزامنة: ${res.dates_updated||0} تاريخ انتهاء تحدّث · ${res.phones_added||0} جوال انضاف · ${res.passwords_updated||0} باسورد تحدّث</span>`:''}
     </div>`;}).join('');
-  v.innerHTML=`${cards}<div id="plBox"></div>`;
+  if(!$('#plCards')||!v.contains($('#plCards')))v.innerHTML='<div id="plCards" class="group"></div><div id="plBox" class="group"></div>';
+  $('#plCards').innerHTML=cards;
   renderPanelLines();pollPanel();
 }
+// خانة البحث تنرسم مرة وحدة، والنتائج بس تتحدّث مع الكتابة (عشان ما يطير المؤشر ولا يسكّر الكيبورد)
 function renderPanelLines(){
   const box=$('#plBox');if(!box)return;
   if(!panels.length||!panelLines.length){box.innerHTML='';return}
+  if(!$('#plq')||!box.contains($('#plq'))){
+    box.innerHTML=`<h2><span id="plTitle"></span> <span class="count" id="plCount"></span></h2>
+      <span class="hint" id="plHint">اربط كل خط بزبونه (باليوزر)، أو استورده كزبون جديد. بعدها تاريخه وجواله يتحدّثون لحالهم من البانل. المنتهية تفيدك لحملات "وحشتنا".</span>
+      <div class="tools"><label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="plq" type="search" placeholder="ابحث في كل الخطوط باليوزر أو الاسم أو الجوال" autocomplete="off"></label>
+        <div id="plTools"></div></div>
+      <div id="plResults"></div>`;
+    $('#plq').value=plQuery;
+  }
+  renderPanelResults();
+}
+function renderPanelResults(){
+  const res=$('#plResults');if(!res)return;
   const unlinked=panelLines.filter(l=>!l.customer_id);
   const FL={active:lineActive,expired:l=>!lineActive(l),all:()=>true};
   const q=toLatin(plQuery.trim()).toLowerCase(),qd=q.replace(/\D/g,'');
   const match=l=>l.username.toLowerCase().includes(q)||l.fullname.toLowerCase().includes(q)||(qd.length>=4&&(l.phone_found||'').includes(qd.replace(/^0/,'')));
-  // البحث يدور في كل الخطوط (الفعّالة والمنتهية والمربوطة)، والفلتر للتصفح بس
   const list=(q?panelLines.filter(match):unlinked.filter(FL[plFilter]||lineActive))
     .sort((a,b)=>(a.customer_id?1:0)-(b.customer_id?1:0)||String(b.expires_at||'9').localeCompare(String(a.expires_at||'9')));
+  $('#plTitle').textContent=q?'نتائج البحث في كل خطوط البانل':'خطوط ما هي مربوطة بزبون';
+  $('#plCount').textContent=q?list.length:unlinked.length;
+  $('#plHint').hidden=!!q;
   const cnt=k=>unlinked.filter(FL[k]).length;
   const sids=[...new Set(unlinked.map(l=>l.panel_id))];
-  const custOpts=[...customers].sort((a,b)=>(a.lineUser?1:0)-(b.lineUser?1:0)||a.name.localeCompare(b.name,'ar')).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}${c.lineUser?` (عنده ${esc(c.lineUser)})`:''}</option>`).join('');
   const bulk=canDelete?sids.map(sid=>{const a=unlinked.filter(l=>l.panel_id===sid&&lineActive(l)).length,e=unlinked.filter(l=>l.panel_id===sid&&!lineActive(l)).length,sfx=sids.length>1?' من '+esc(serverName(sid)):'';
     return `${a?`<button class="btn primary sm" type="button" data-act="plImportAll" data-sid="${esc(sid)}" data-kind="active">⬇️ استورد كل الفعّالة${sfx} (${a})</button>`:''}${e?`<button class="btn sm" type="button" data-act="plImportAll" data-sid="${esc(sid)}" data-kind="expired">⬇️ استورد كل المنتهية${sfx} (${e})</button>`:''}`;}).join(''):'';
-  box.innerHTML=`<h2>${q?'نتائج البحث في كل خطوط البانل':'خطوط ما هي مربوطة بزبون'} <span class="count">${q?list.length:unlinked.length}</span></h2>
-    ${q?'':'<span class="hint">اربط كل خط بزبونه (باليوزر)، أو استورده كزبون جديد. بعدها تاريخه وجواله يتحدّثون لحالهم من البانل. المنتهية تفيدك لحملات "وحشتنا".</span>'}
-    <div class="tools"><label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="plq" type="search" placeholder="ابحث في كل الخطوط باليوزر أو الاسم أو الجوال" value="${esc(plQuery)}" autocomplete="off"></label>
-      ${q?'':`<div class="chips"><button class="chip" type="button" data-act="plFilter" data-f="active" aria-pressed="${plFilter==='active'}">فعّالة ${cnt('active')}</button><button class="chip" type="button" data-act="plFilter" data-f="expired" aria-pressed="${plFilter==='expired'}">منتهية أو موقوفة ${cnt('expired')}</button><button class="chip" type="button" data-act="plFilter" data-f="all" aria-pressed="${plFilter==='all'}">الكل ${cnt('all')}</button></div>
-      ${bulk?`<div style="display:flex;gap:6px;flex-wrap:wrap">${bulk}</div>`:''}`}</div>
-    ${list.length?`<div class="rows">${list.slice(0,plShow).map(l=>{const key=l.panel_id+':'+l.line_id;const e=lineEnd(l);const d=e?diffDays(today(),e):null;const lc=l.customer_id?customers.find(c=>c.id===l.customer_id):null;
+  const tools=$('#plTools');tools.hidden=!!q;
+  if(!q)tools.innerHTML=`<div class="chips"><button class="chip" type="button" data-act="plFilter" data-f="active" aria-pressed="${plFilter==='active'}">فعّالة ${cnt('active')}</button><button class="chip" type="button" data-act="plFilter" data-f="expired" aria-pressed="${plFilter==='expired'}">منتهية أو موقوفة ${cnt('expired')}</button><button class="chip" type="button" data-act="plFilter" data-f="all" aria-pressed="${plFilter==='all'}">الكل ${cnt('all')}</button></div>
+    ${bulk?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${bulk}</div>`:''}`;
+  const custOpts=()=>[...customers].sort((a,b)=>(a.lineUser?1:0)-(b.lineUser?1:0)||a.name.localeCompare(b.name,'ar')).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}${c.lineUser?` (عنده ${esc(c.lineUser)})`:''}</option>`).join('');
+  res.innerHTML=list.length?`<div class="rows">${list.slice(0,plShow).map(l=>{const key=l.panel_id+':'+l.line_id;const e=lineEnd(l);const d=e?diffDays(today(),e):null;const lc=l.customer_id?customers.find(c=>c.id===l.customer_id):null;
       return `<div class="pl-row"><div style="min-width:0"><div class="u"><span class="mono">${esc(l.username)}</span>${l.fullname?`<span>${esc(l.fullname)}</span>`:''}${l.is_trial?'<span class="tag">تجربة</span>':''}${l.banned?'<span class="tag">محظور</span>':!l.enabled?'<span class="tag">موقوف</span>':''}</div>
         <div class="meta">${l.phone_found?`<span>📱 <span class="mono">+${esc(l.phone_found)}</span></span>`:''}${panels.length>1?`<span>${esc(serverName(l.panel_id))}</span>`:''}${e?'':'<span>يبدأ مع أول تشغيل</span>'}</div></div>
         ${d===null?'<span></span>':pill(d)}
         ${lc?`<div class="linkbox"><span class="tag" style="background:var(--ok-soft);color:var(--ok)">🔗 مربوط بـ ${esc(lc.name)}</span><button class="btn sm ghost" type="button" data-act="open" data-id="${esc(lc.id)}">افتح الزبون</button></div>`
         :canWrite?`<div class="linkbox">${canDelete?`<button class="btn sm" type="button" data-act="plImport" data-sid="${esc(l.panel_id)}" data-line="${l.line_id}">⬇️ استورد كزبون جديد</button>`:''}<button class="btn sm ghost" type="button" data-act="plLinkOpen" data-key="${esc(key)}">🔗 ربط بزبون موجود</button>
-          ${plLinking===key?`<select id="plLinkSel" aria-label="اختر الزبون">${custOpts}</select><button class="btn sm primary" type="button" data-act="plLinkGo" data-sid="${esc(l.panel_id)}" data-user="${esc(l.username)}">ربط</button>`:''}</div>`:''}
+          ${plLinking===key?`<select id="plLinkSel" aria-label="اختر الزبون">${custOpts()}</select><button class="btn sm primary" type="button" data-act="plLinkGo" data-sid="${esc(l.panel_id)}" data-user="${esc(l.username)}">ربط</button>`:''}</div>`:''}
       </div>`;}).join('')}</div>${list.length>plShow?`<button class="btn ghost" type="button" data-act="plMore">عرض ${Math.min(60,list.length-plShow)} زيادة</button>`:''}`
-    :`<div class="empty"><span>${q?'ما لقينا هاليوزر في البانل. لو توه منضاف، اضغط "مزامنة الحين".':unlinked.length?'ما فيه خطوط بهالفلتر.':'كل خطوطك مربوطة بزبائن ✓'}</span></div>`}`;
-  const more=box.querySelector('[data-act=plMore]');if(more)more.addEventListener('click',()=>{plShow+=60;renderPanelLines();});
+    :`<div class="empty"><span>${q?'ما لقينا هاليوزر في البانل. لو توه منضاف، اضغط "مزامنة الحين".':unlinked.length?'ما فيه خطوط بهالفلتر.':'كل خطوطك مربوطة بزبائن ✓'}</span></div>`;
+  const more=res.querySelector('[data-act=plMore]');if(more)more.addEventListener('click',()=>{plShow+=60;renderPanelResults();});
 }
 async function panelSync(sid){
   const {error}=await sb.rpc('request_panel_sync',{pid:sid});
