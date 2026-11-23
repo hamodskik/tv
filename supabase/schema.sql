@@ -69,6 +69,11 @@ alter table public.customers add  constraint customers_line_user_len check (char
 alter table public.customers drop constraint if exists customers_line_pass_len;
 alter table public.customers add  constraint customers_line_pass_len check (char_length(line_pass) <= 100);
 
+-- ---------- تحديث 3: أكثر من سيرفر ----------
+alter table public.customers add column if not exists server_id text not null default '';
+alter table public.customers drop constraint if exists customers_server_id_len;
+alter table public.customers add  constraint customers_server_id_len check (char_length(server_id) <= 40);
+
 create index if not exists customers_end_date_idx on public.customers (end_date);
 create index if not exists customers_line_user_idx on public.customers (line_user);
 create index if not exists customers_mac_idx on public.customers (mac);

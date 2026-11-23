@@ -263,6 +263,16 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
 .ref-row .nm{font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ref-row .who{font-size:.8rem;color:var(--muted);grid-column:1/-1}
 .rank{display:inline-flex;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--surface-2);font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums}
+.srv{border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.srv-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.srv-head label{display:flex;align-items:center;gap:6px;font-size:.84rem;font-weight:600;cursor:pointer}
+.srv-head input{accent-color:var(--accent)}
+.ptable{width:100%;border-collapse:collapse;font-size:.86rem}
+.ptable th{color:var(--muted);font-weight:600;text-align:start;padding:2px 4px}
+.ptable td{padding:3px 4px}
+.ptable input{width:100%;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 8px;direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.sup-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto;gap:8px;align-items:center}
+.sup-row input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 10px;min-width:0;width:100%}
 .toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:12px;z-index:60;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);font-weight:600;font-size:.9rem;max-width:calc(100% - 32px)}
 .toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700}
 </style>
@@ -353,7 +363,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
         </div>
         <div class="grid2">
           <div class="field"><label for="f_pkg">الباقة</label><select id="f_pkg"></select></div>
-          <div class="field"></div>
+          <div class="field"><label for="f_server">السيرفر</label><select id="f_server"></select></div>
         </div>
         <div class="grid2">
           <div class="field" id="amountField"><label for="f_amount">المبلغ المدفوع</label><input id="f_amount" class="ltr num" inputmode="decimal" autocomplete="off"><span class="hint" id="h_amount"></span></div>
@@ -383,11 +393,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
       <div class="sheet-head"><h3 id="setTitle">الإعدادات</h3><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
       <form class="form" id="setForm" novalidate>
-        <div class="grid2">
-          <div class="field"><label for="s_store">اسم المتجر</label><input id="s_store"></div>
-          <div class="field"><label for="s_server">اسم السيرفر</label><input id="s_server"></div>
-        </div>
-        <div class="field"><label for="s_surl">رابط السيرفر (ينرسل مع اليوزر والباس لمستخدمين Smarters والتطبيقات الثانية)</label><input id="s_surl" class="ltr" placeholder="http://example.com:8080"></div>
+        <div class="field"><label for="s_store">اسم المتجر</label><input id="s_store"></div>
         <div class="field"><label for="s_pay">رابط الدفع (يظهر في رسائل التذكير)</label><input id="s_pay" class="ltr" placeholder="https://..."></div>
         <div class="grid2">
           <div class="field"><label for="s_cc">مفتاح الدولة الافتراضي</label><input id="s_cc" class="ltr num" inputmode="numeric" placeholder="966"></div>
@@ -397,8 +403,15 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
           <div class="grid2"><div class="field"><label for="s_tone">الأسلوب الافتراضي</label><select id="s_tone"></select></div>
           <div class="field" style="justify-content:flex-end"><button class="btn" type="button" data-act="editTpl" data-tpl="activate">✏️ تعديل قوالب الرسائل</button></div></div>
           <div><button class="btn ghost sm" type="button" data-act="tplRestoreAll" id="btnRestoreAll">↩️ استعادة كل القوالب الافتراضية</button></div></div>
-        <div class="sec"><h4>أسعار الباقات</h4><div class="grid2" id="priceFields"></div>
+        <div class="sec"><h4>السيرفرات والأسعار</h4>
+          <span class="hint">لكل سيرفر اسمه ورابطه وأسعاره. "أقل سعر" هو أقل مبلغ تقدر تنزل له، واللوحة تنبهك لو نزلت تحته.</span>
+          <div id="srvList" class="form"></div>
+          <div><button class="btn sm" type="button" data-act="srvAdd">+ أضف سيرفر</button></div>
           <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
+        <div class="sec"><h4>أرقام التواصل والدعم</h4>
+          <span class="hint">تنضاف تلقائياً في رسالة التفعيل ورسالة التجديد كروابط واتساب سريعة، عشان الزبون يوصلك لو الرقم الأول ما رد. المتغير اسمه <b>{أرقام_الدعم}</b>.</span>
+          <div id="supList" class="form"></div>
+          <div><button class="btn sm" type="button" data-act="supAdd">+ أضف رقم</button></div></div>
         <div class="formerr" id="setErr" hidden></div>
         <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج</button></div>
       </form>
@@ -581,7 +594,7 @@ const TPLS=[
 ];
 const TONES=[{id:'friendly',label:'ودّي'},{id:'formal',label:'رسمي'},{id:'hype',label:'حماسي 🔥'},{id:'short',label:'مختصر'}];
 const toneLabel=id=>(TONES.find(t=>t.id===id)||TONES[0]).label;
-const VARS=[['{الاسم}','الاسم'],['{الجهاز}','MAC'],['{الانتهاء}','تاريخ الانتهاء'],['{المتبقي}','الأيام الباقية'],['{متى}','اليوم/بكرة'],['{الباقة}','الباقة'],['{المتجر}','اسم المتجر'],['{السيرفر}','السيرفر'],['{رابط_الدفع}','رابط الدفع'],['{التطبيق}','التطبيق'],['{بيانات_الدخول}','بيانات الدخول']];
+const VARS=[['{الاسم}','الاسم'],['{الجهاز}','MAC'],['{الانتهاء}','تاريخ الانتهاء'],['{المتبقي}','الأيام الباقية'],['{متى}','اليوم/بكرة'],['{الباقة}','الباقة'],['{المتجر}','اسم المتجر'],['{السيرفر}','السيرفر'],['{رابط_الدفع}','رابط الدفع'],['{التطبيق}','التطبيق'],['{بيانات_الدخول}','بيانات الدخول'],['{أرقام_الدعم}','أرقام الدعم']];
 const DEFAULT_TPLS={
 activate:{
 formal:`✨ *أهلاً بك في {المتجر} ({السيرفر})* ✨
@@ -593,7 +606,9 @@ formal:`✨ *أهلاً بك في {المتجر} ({السيرفر})* ✨
 *ينتهي في:* {الانتهاء}
 *الحالة:* مكتمل عن بُعد ✅
 
-*طريقة التشغيل:* أغلق تطبيق {التطبيق} وأعد فتحه وستعمل القنوات فوراً.`,
+*طريقة التشغيل:* أغلق تطبيق {التطبيق} وأعد فتحه وستعمل القنوات فوراً.
+
+{أرقام_الدعم}`,
 friendly:`أهلاً {الاسم} 👋
 تم تفعيل اشتراكك في *{المتجر}* ✅
 
@@ -602,7 +617,9 @@ friendly:`أهلاً {الاسم} 👋
 {بيانات_الدخول}
 📅 ينتهي في: {الانتهاء}
 
-سكّر تطبيق {التطبيق} وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍`,
+سكّر تطبيق {التطبيق} وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍
+
+{أرقام_الدعم}`,
 hype:`🔥🔥 *مبروك {الاسم}!* 🔥🔥
 اشتراكك في *{المتجر}* صار شغّال 100% ⚡
 
@@ -612,12 +629,16 @@ hype:`🔥🔥 *مبروك {الاسم}!* 🔥🔥
 ⏳ لين: {الانتهاء}
 
 ⚽ مباريات، 🎬 أفلام، 📡 قنوات… كلها صارت عندك!
-سكّر {التطبيق} وافتحه، واستمتع 🍿`,
+سكّر {التطبيق} وافتحه، واستمتع 🍿
+
+{أرقام_الدعم}`,
 short:`✅ تم تفعيل اشتراكك يا {الاسم}
 الجهاز: {الجهاز}
 {بيانات_الدخول}
 ينتهي: {الانتهاء}
-سكّر {التطبيق} وافتحه 👍`},
+سكّر {التطبيق} وافتحه 👍
+
+{أرقام_الدعم}`},
 d7:{
 formal:`🔔 *إشعار | {المتجر}*
 أهلاً {الاسم}، نود تذكيرك بأن اشتراكك ينتهي بعد {المتبقي} بتاريخ {الانتهاء}.
@@ -694,15 +715,23 @@ short:`كيف الجودة عندك يا {الاسم}؟ قيّمها من 1 إل
 renewed:{
 formal:`✅ *تم تجديد اشتراكك بنجاح*
 مرحباً {الاسم}، تم تمديد اشتراكك على جهازك {الجهاز} حتى {الانتهاء}.
-يُرجى إغلاق تطبيق {التطبيق} وإعادة فتحه. شكراً لثقتك في {المتجر}.`,
+يُرجى إغلاق تطبيق {التطبيق} وإعادة فتحه. شكراً لثقتك في {المتجر}.
+
+{أرقام_الدعم}`,
 friendly:`✅ *تم تجديد اشتراكك*
 أهلاً *{الاسم}*، تم تمديد اشتراكك على جهازك {الجهاز} حتى *{الانتهاء}*.
-سكّر {التطبيق} وافتحه من جديد. شكراً لثقتك في {المتجر} 🙏`,
+سكّر {التطبيق} وافتحه من جديد. شكراً لثقتك في {المتجر} 🙏
+
+{أرقام_الدعم}`,
 hype:`🎉 *تم التجديد يا {الاسم}!* 🎉
 اشتراكك شغال لين *{الانتهاء}* 🔥
 سكّر {التطبيق} وافتحه وكمّل المتعة 🍿⚽
-شكراً إنك معنا 🙌`,
-short:`✅ تم التجديد لين {الانتهاء}. سكّر {التطبيق} وافتحه 👍`},
+شكراً إنك معنا 🙌
+
+{أرقام_الدعم}`,
+short:`✅ تم التجديد لين {الانتهاء}. سكّر {التطبيق} وافتحه 👍
+
+{أرقام_الدعم}`},
 trialEnd:{
 formal:`مرحباً {الاسم}،
 انتهت الفترة التجريبية، ونأمل أن تكون الخدمة قد نالت رضاك.
@@ -737,10 +766,11 @@ function tplSource(id,tone){const own=settings.templates?.[id]?.[tone];return (t
 function variants(id,tone){return tplSource(id,tone).split(/\n\s*-{3,}\s*\n/).map(s=>s.trim()).filter(Boolean);}
 function fillTpl(src,c){
   const s=settings,d=daysLeft(c);
-  const login=isIbo(c)?'':[s.serverUrl&&c.lineUser?`🌐 السيرفر: ${s.serverUrl}`:'',c.lineUser?`👤 Username: ${c.lineUser}`:'',c.linePass?`🔑 Password: ${c.linePass}`:''].filter(Boolean).join('\n');
+  const srv=serverOf(c.serverId),sup=supportBlock();
+  const login=isIbo(c)?'':[srv.url&&c.lineUser?`🌐 السيرفر: ${srv.url}`:'',c.lineUser?`👤 Username: ${c.lineUser}`:'',c.linePass?`🔑 Password: ${c.linePass}`:''].filter(Boolean).join('\n');
   const map={'{الاسم}':c.name||'','{الجهاز}':c.mac||screenLabel(c.screen),'{التطبيق}':appLabel(c.app),'{بيانات_الدخول}':login,'{الانتهاء}':nice(c.endDate),'{المتبقي}':daysWord(Math.max(d,0)),
-    '{متى}':d<=0?'اليوم':'بكرة','{الباقة}':pkgLabel(c.pkg),'{المتجر}':s.store||'','{السيرفر}':s.server||'','{رابط_الدفع}':s.payLink||''};
-  return src.split('\n').filter(l=>!(l.includes('{رابط_الدفع}')&&!s.payLink)&&!(l.includes('{بيانات_الدخول}')&&!login)).join('\n')
+    '{متى}':d<=0?'اليوم':'بكرة','{الباقة}':pkgLabel(c.pkg),'{المتجر}':s.store||'','{السيرفر}':srv.name||'','{أرقام_الدعم}':sup,'{رابط_الدفع}':s.payLink||''};
+  return src.split('\n').filter(l=>!(l.includes('{رابط_الدفع}')&&!s.payLink)&&!(l.includes('{بيانات_الدخول}')&&!login)&&!(l.includes('{أرقام_الدعم}')&&!sup)).join('\n')
     .replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).trim();
 }
 function tpl(id,c,tone,vi){const v=variants(id,tone||defaultTone());return v.length?fillTpl(v[(vi||0)%v.length],c):'';}
@@ -807,7 +837,7 @@ function row(c,extra){
   return `<div class="row">
     <button class="row-main" type="button" data-act="open" data-id="${esc(c.id)}">
       <span class="nm">${esc(c.name)} ${c.example?'<span class="tag ex">مثال</span>':''}${extra?autoTag(c,extra.tpl):''}</span>
-      <span class="meta">${extra?`<span>${esc(extra.why)}</span>`:`<span>${esc(pkgLabel(c.pkg))}</span>${isPaidScreen(c.screen)||!isIbo(c)?`<span>${esc(screenLabel(c.screen))}</span>`:''}<span>ينتهي ${esc(nice(c.endDate))}</span>`}${macTail?`<span>MAC <span class="mono">${esc(macTail)}</span></span>`:''}</span>
+      <span class="meta">${extra?`<span>${esc(extra.why)}</span>`:`<span>${esc(pkgLabel(c.pkg))}</span>${getServers().length>1?`<span>${esc(serverName(c.serverId))}</span>`:''}${isPaidScreen(c.screen)||!isIbo(c)?`<span>${esc(screenLabel(c.screen))}</span>`:''}<span>ينتهي ${esc(nice(c.endDate))}</span>`}${macTail?`<span>MAC <span class="mono">${esc(macTail)}</span></span>`:''}</span>
     </button>
     ${pill(d)}
     <div class="row-acts">
@@ -829,12 +859,13 @@ function renderTasks(){
   }).join('');
 }
 function emptyCustomers(){return `<div class="empty"><strong>ما عندك زبائن للحين</strong><span>اضغط "زبون جديد" وعبّي الاسم والجوال والـ MAC، واللوحة تحسب الباقي.</span>${canWrite?'<button class="btn primary" type="button" data-act="add">+ أضف أول زبون</button>':''}</div>`}
+function allFilters(){const l=getServers();return l.length>1?[...FILTERS,...l.map(s=>({id:'srv:'+s.id,label:s.name,fn:c=>serverOf(c.serverId).id===s.id}))]:FILTERS;}
 function sortKey(c){const d=daysLeft(c);return d<0?100000-d:d}
 function renderList(){
   $('#cntList').textContent=customers.length;
-  $('#chips').innerHTML=FILTERS.map(f=>{const n=customers.filter(f.fn).length;return `<button class="chip" type="button" data-act="filter" data-f="${f.id}" aria-pressed="${filter===f.id}">${f.label} <span class="num">${n}</span></button>`}).join('');
+  $('#chips').innerHTML=allFilters().map(f=>{const n=customers.filter(f.fn).length;return `<button class="chip" type="button" data-act="filter" data-f="${f.id}" aria-pressed="${filter===f.id}">${f.label} <span class="num">${n}</span></button>`}).join('');
   if(!customers.length){$('#listBody').innerHTML=loaded?emptyCustomers():`<div class="empty"><strong>جاري تحميل زبائنك…</strong></div>`;return}
-  const f=FILTERS.find(x=>x.id===filter)||FILTERS[0];
+  const f=allFilters().find(x=>x.id===filter)||FILTERS[0];
   const q=toLatin(query.trim()).toLowerCase();const qh=q.replace(/[^0-9a-f]/g,'');const qd=q.replace(/\D/g,'');
   const list=customers.filter(f.fn).filter(c=>{
     if(!q)return true;
@@ -856,7 +887,7 @@ function renderNotice(){
 }
 function renderAll(){
   $('#brandName').textContent=settings.store||DEFAULTS.store;
-  $('#brandSub').textContent=`لوحة الزبائن · ${settings.server||DEFAULTS.server}`;
+  $('#brandSub').textContent=`لوحة الزبائن · ${getServers().map(s=>s.name).join('، ')}`;
   renderNotice();renderKpis();renderOutbox();renderTasks();renderList();
   if(tab==='cal')renderCal();if(tab==='rep')renderRep();if(tab==='ref')renderRef();
   $('#fab').hidden=!canWrite;$('#btnAuto').hidden=!canDelete||!db;
@@ -888,6 +919,7 @@ function renderDetail(force){
       ${!isIbo(c)||c.lineUser?fact('Username',c.lineUser,c.lineUser,'mono',1):''}
       ${!isIbo(c)||c.linePass?fact('Password',c.linePass,c.linePass,'mono',1):''}
       ${fact('الباقة',pkgLabel(c.pkg))}
+      ${fact('السيرفر',serverName(c.serverId))}
       ${fact('الجهاز',screenLabel(c.screen))}
       ${fact('التطبيق',appLabel(c.app))}
       ${fact('تاريخ التفعيل',nice(c.startDate))}
@@ -917,7 +949,7 @@ function renderDetail(force){
       <div class="renew">${PKGS.filter(p=>p.id!=='trial').map(p=>`<button class="chip" type="button" data-act="renewPick" data-pkg="${p.id}" aria-pressed="${renewPkg===p.id}">+ ${p.label}</button>`).join('')}</div>
       ${renewPkg?`<div class="renew-box">
         <div>من <strong>${esc(nice(renewFrom))}</strong> إلى <strong>${esc(nice(addPkg(renewFrom,renewPkg)))}</strong>${d<0?' <span class="hint">(يبدأ من اليوم لأن اشتراكه منتهي)</span>':''}</div>
-        <div class="line"><div class="field"><label for="r_amt">المبلغ المدفوع${feeFor(renewPkg,c.screen)?` (شامل ${feeFor(renewPkg,c.screen)} رسوم الشاشة)`:''}</label><input id="r_amt" class="ltr num" inputmode="decimal" value="${esc(renewAmt)}"></div>
+        <div class="line"><div class="field"><label for="r_amt">المبلغ المدفوع${feeFor(renewPkg,c.screen)?` (شامل ${feeFor(renewPkg,c.screen)} رسوم الشاشة)`:''}</label><span class="hint">${esc(serverName(c.serverId))}${minOf(renewPkg,c.serverId)?` · تقدر تنزل لين ${minOf(renewPkg,c.serverId)+feeFor(renewPkg,c.screen)}`:''}</span><input id="r_amt" class="ltr num" inputmode="decimal" value="${esc(renewAmt)}"></div>
         <button class="btn primary" type="button" data-act="renewGo" id="btnRenew">تأكيد التجديد</button><button class="btn ghost" type="button" data-act="renewCancel">إلغاء</button></div>
       </div>`:''}
     </div>`:''}
@@ -948,15 +980,36 @@ function fillPkgSelect(){
   $('#f_app').innerHTML=APPS.map(a=>`<option value="${a.id}">${a.label}</option>`).join('');
   $('#f_screen').innerHTML=SCREENS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('');
   $('#f_pkg').innerHTML=PKGS.map(p=>`<option value="${p.id}">${p.label}</option>`).join('');
-  $('#priceFields').innerHTML=PKGS.map(p=>`<div class="field"><label for="pr_${p.id}">${p.label}</label><input id="pr_${p.id}" class="ltr num" inputmode="decimal"></div>`).join('');
 }
-function priceOf(pid){return Number((settings.prices||{})[pid])||0}
-function feeFor(pid,screen){return isPaidScreen(screen)&&pid==='12m'?(Number(settings.screenFee)||0):0}
-function amountFor(pid,screen){return priceOf(pid)+feeFor(pid,screen)}
+/* ---------- servers ---------- */
+function getServers(){
+  if(Array.isArray(settings.servers)&&settings.servers.length)return settings.servers;
+  const pr={};for(const p of PKGS)pr[p.id]={p:Number((settings.prices||{})[p.id])||0,min:0};
+  return [{id:'s1',name:settings.server||DEFAULTS.server,url:settings.serverUrl||'',prices:pr}];
+}
+const defaultServerId=()=>{const l=getServers();return l.some(s=>s.id===settings.defaultServer)?settings.defaultServer:l[0].id;};
+function serverOf(sid){const l=getServers();return l.find(s=>s.id===sid)||l.find(s=>s.id===defaultServerId())||l[0];}
+const serverName=sid=>serverOf(sid)?.name||'—';
+function minOf(pid,sid){return Number(serverOf(sid)?.prices?.[pid]?.min)||0}
+function supportBlock(){
+  const l=(settings.supportNumbers||[]).filter(n=>n.phone);if(!l.length)return '';
+  return '📞 للتواصل والدعم:\n'+l.map(n=>`• ${n.label||'واتساب'}: wa.me/${n.phone}`).join('\n');
+}
+function priceOf(pid,sid){return Number(serverOf(sid)?.prices?.[pid]?.p)||0}
+function feeFor(pid,screen){/* yearly screen fee */return isPaidScreen(screen)&&pid==='12m'?(Number(settings.screenFee)||0):0}
+function amountFor(pid,screen,sid){return priceOf(pid,sid)+feeFor(pid,screen)}
+function amountHint(){
+  const el=$('#h_amount');if(!el)return;const pid=$('#f_pkg').value,sc=$('#f_screen').value,sid=$('#f_server').value;
+  const p=priceOf(pid,sid),mn=minOf(pid,sid),fee=feeFor(pid,sc),cur=settings.currency||'';
+  const amt=Number(toLatin($('#f_amount').value).replace(/[^\d.]/g,''));
+  if(!p){el.className='hint';el.textContent='حدد أسعار هالسيرفر من الإعدادات عشان تتعبى تلقائياً';return}
+  if($('#f_amount').value&&mn&&amt<mn+fee){el.className='hint warn';el.textContent=`⚠️ أقل من أقل سعر (${mn+fee} ${cur})`;return}
+  el.className='hint';el.textContent=fee?`${p} + ${fee} رسوم ${screenLabel(sc)} = ${p+fee} ${cur}${mn?` · أقل سعر ${mn+fee}`:''}`:`السعر ${p} ${cur}${mn?` · تقدر تنزل لين ${mn}`:''}`;
+}
 function updateEnd(){
   if(!endTouched&&$('#f_start').value)$('#f_end').value=addPkg($('#f_start').value,$('#f_pkg').value);
-  const pid=$('#f_pkg').value,sc=$('#f_screen').value,fee=feeFor(pid,sc);
-  $('#h_amount').textContent=!priceOf(pid)?'حدد أسعار باقاتك من الإعدادات عشان تتعبى تلقائياً':fee?`شامل ${fee} ${settings.currency||''} رسوم ${screenLabel(sc)}`:(isPaidScreen(sc)?'رسوم الشاشة تنضاف تلقائياً على باقة السنة فقط':'');
+  const pid=$('#f_pkg').value,sc=$('#f_screen').value,sid=$('#f_server').value,fee=feeFor(pid,sc);
+  amountHint();
 }
 function openForm(c){
   editingId=c?c.id:null;endTouched=!!c;
@@ -966,7 +1019,8 @@ function openForm(c){
   $('#f_paste').value='';$('#f_name').value=c?.name||'';$('#f_phone').value=c?.phone?'+'+c.phone:'';
   $('#f_mac').value=c?.mac||'';$('#f_key').value=c?.deviceKey||'';$('#f_ref').value=c?.referredBy||'';$('#f_notes').value=c?.notes||'';
   $('#f_pkg').value=c?.pkg||'12m';$('#f_screen').value=c?.screen||'android';$('#f_app').value=c?.app||'ibo';$('#f_luser').value=c?.lineUser||'';$('#f_lpass').value=c?.linePass||'';syncAppFields();$('#f_start').value=c?.startDate||today();$('#f_end').value=c?.endDate||'';
-  $('#f_amount').value=c?'':(amountFor('12m','android')||'');
+  $('#f_server').innerHTML=getServers().map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');$('#f_server').value=c?.serverId&&getServers().some(s=>s.id===c.serverId)?c.serverId:defaultServerId();
+  $('#f_amount').value=c?'':(amountFor('12m','android',$('#f_server').value)||'');
   $('#formErr').hidden=true;$('#h_mac').textContent='';$('#h_mac').className='hint';
   $('#h_phone').textContent='يتحول تلقائياً للصيغة الدولية';$('#h_phone').className='hint';
   if(!c)updateEnd();
@@ -1000,7 +1054,7 @@ async function saveForm(e){
   if(!macFine)return fail('صحح الـ MAC أو امسحه');
   if(!start||!end)return fail('حدد تاريخ التفعيل والانتهاء');
   if(end<start)return fail('تاريخ الانتهاء قبل تاريخ التفعيل');
-  const base={name,phone,mac:fmtMac($('#f_mac').value),deviceKey:toLatin($('#f_key').value).trim(),pkg:$('#f_pkg').value,screen:$('#f_screen').value,app:$('#f_app').value,lineUser:$('#f_luser').value.trim(),linePass:$('#f_lpass').value.trim(),
+  const base={name,phone,mac:fmtMac($('#f_mac').value),deviceKey:toLatin($('#f_key').value).trim(),pkg:$('#f_pkg').value,serverId:$('#f_server').value,screen:$('#f_screen').value,app:$('#f_app').value,lineUser:$('#f_luser').value.trim(),linePass:$('#f_lpass').value.trim(),
     startDate:start,endDate:end,notes:$('#f_notes').value.trim(),referredBy:$('#f_ref').value.trim()};
   const btn=$('#btnSave');btn.disabled=true;
   try{
@@ -1067,6 +1121,10 @@ document.addEventListener('click',e=>{
     case 'tplPick':detailTpl=t.dataset.tpl;detailVar=0;renderDetail(true);break;
     case 'tonePick':detailTone=t.dataset.tone;detailVar=0;renderDetail(true);break;
     case 'nextVar':detailVar++;renderDetail(true);break;
+    case 'srvAdd':srvAdd();break;
+    case 'srvDel':srvDel(Number(t.dataset.i));break;
+    case 'supAdd':supAdd();break;
+    case 'supDel':supDel(Number(t.dataset.i));break;
     case 'msgReset':renderDetail(true);toast('رجعت الرسالة لنص القالب');break;
     case 'tplRestore':restoreTemplates([[t.dataset.tpl,t.dataset.tone]]);break;
     case 'tplRestoreAll':{const n=countOverrides();if(!n){toast('كل القوالب على النص الافتراضي أصلاً ✓');break}
@@ -1077,7 +1135,7 @@ document.addEventListener('click',e=>{
     case 'teVar':teInsert(t.dataset.v);break;
     case 'teReset':teResetText();break;
     case 'teClose':teCloseSheet();break;
-    case 'renewPick':{renewPkg=t.dataset.pkg;{const cc=customers.find(x=>x.id===openId);renewAmt=String(amountFor(renewPkg,cc?.screen)||'');};renderDetail(true);break}
+    case 'renewPick':{renewPkg=t.dataset.pkg;{const cc=customers.find(x=>x.id===openId);renewAmt=String(amountFor(renewPkg,cc?.screen,cc?.serverId)||'');};renderDetail(true);break}
     case 'renewCancel':renewPkg=null;renderDetail(true);break;
     case 'renewGo':doRenew();break;
     case 'edit':{const c=customers.find(x=>x.id===id);if(c){openId=null;openForm(c)}break}
@@ -1111,7 +1169,9 @@ function setTab(t){tab=t;for(const [k,[tb,vw]] of Object.entries(TABVIEWS)){$(tb
   if(t==='cal')renderCal();if(t==='rep')renderRep();if(t==='ref')renderRef();}
 
 $('#custForm').addEventListener('submit',saveForm);
-const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value)||'';};
+const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value,$('#f_server').value)||'';amountHint();};
+$('#f_server').addEventListener('change',refreshAmount);
+$('#f_amount').addEventListener('input',amountHint);
 $('#f_pkg').addEventListener('change',()=>{endTouched=false;updateEnd();refreshAmount();});
 function syncAppFields(){const ibo=$('#f_app').value==='ibo';$('#iboFields').hidden=!ibo;if(!ibo){$('#h_mac').textContent='';}}
 $('#f_screen').addEventListener('change',()=>{const s=SCREENS.find(x=>x.id===$('#f_screen').value);if(s)$('#f_app').value=s.app;syncAppFields();updateEnd();refreshAmount();});
@@ -1132,26 +1192,62 @@ $('#f_paste').addEventListener('input',e=>{
 
 /* ---------- settings ---------- */
 function openSettings(){
-  $('#s_store').value=settings.store||'';$('#s_server').value=settings.server||'';$('#s_pay').value=settings.payLink||'';$('#s_surl').value=settings.serverUrl||'';
+  $('#s_store').value=settings.store||'';$('#s_pay').value=settings.payLink||'';
+  setSrv=JSON.parse(JSON.stringify(getServers()));setDefSrv=defaultServerId();setSup=JSON.parse(JSON.stringify(settings.supportNumbers||[]));renderSrvEditor();
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
-  for(const p of PKGS)$('#pr_'+p.id).value=priceOf(p.id)||'';
   $('#s_fee').value=settings.screenFee??35;
   $('#btnRestoreAll').hidden=!canDelete;
   $('#s_tone').innerHTML=TONES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');$('#s_tone').value=defaultTone();$('#s_tone').disabled=!canDelete;
   $('#setErr').hidden=true;
-  const ro=!canDelete;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;
+  const ro=!canDelete;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;document.querySelectorAll('[data-act=srvAdd],[data-act=supAdd],[data-act=srvDel],[data-act=supDel]').forEach(b=>b.hidden=ro);
   show('sheetSettings');
 }
 $('#setForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!db||!canWrite)return;
-  const prices={};for(const p of PKGS)prices[p.id]=Number(toLatin($('#pr_'+p.id).value).replace(/[^\d.]/g,''))||0;
-  const next={store:$('#s_store').value.trim()||DEFAULTS.store,server:$('#s_server').value.trim()||DEFAULTS.server,payLink:$('#s_pay').value.trim(),serverUrl:$('#s_surl').value.trim(),
-    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly',templates:settings.templates||{},resolvedTemplates:settings.resolvedTemplates,dashboardUrl:settings.dashboardUrl,rewardDays:settings.rewardDays};
+  readSrvEditor();
+  const bad=setSrv.find(s=>!s.name.trim());if(bad){$('#setErr').textContent='كل سيرفر لازم يكون له اسم';$('#setErr').hidden=false;return}
+  const lowMin=setSrv.flatMap(s=>PKGS.filter(p=>s.prices[p.id].min>s.prices[p.id].p&&s.prices[p.id].p).map(p=>`${s.name} (${p.label})`));
+  if(lowMin.length){$('#setErr').textContent='أقل سعر أعلى من السعر في: '+lowMin.join('، ');$('#setErr').hidden=false;return}
+  const def=setSrv.find(s=>s.id===setDefSrv)||setSrv[0];
+  const prices={};for(const p of PKGS)prices[p.id]=def.prices[p.id].p;
+  const next={...settings,store:$('#s_store').value.trim()||DEFAULTS.store,server:def.name,payLink:$('#s_pay').value.trim(),serverUrl:def.url,
+    servers:setSrv,defaultServer:def.id,supportNumbers:setSup.filter(n=>n.phone),
+    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly'};
   $('#btnSetSave').disabled=true;
-  try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');}
+  try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');syncResolved();}
   catch(ex){$('#setErr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#setErr').hidden=false}
   finally{$('#btnSetSave').disabled=false}
 });
+
+/* ---------- servers & support editor (settings) ---------- */
+let setSrv=[],setDefSrv='',setSup=[];
+function renderSrvEditor(){
+  const cur=esc(settings.currency||'');
+  $('#srvList').innerHTML=setSrv.map((s,i)=>`<div class="srv" data-i="${i}">
+    <div class="srv-head"><label><input type="radio" name="defsrv" value="${esc(s.id)}" ${s.id===setDefSrv?'checked':''}> الافتراضي</label>
+      ${setSrv.length>1?`<button class="btn sm danger" type="button" data-act="srvDel" data-i="${i}">حذف السيرفر</button>`:''}</div>
+    <div class="grid2"><div class="field"><label>اسم السيرفر</label><input data-f="name" value="${esc(s.name)}" placeholder="مثلاً: سيرفر أروما"></div>
+      <div class="field"><label>رابط السيرفر (لمستخدمين Smarters)</label><input data-f="url" class="ltr" value="${esc(s.url||'')}" placeholder="http://example.com:8080"></div></div>
+    <table class="ptable"><thead><tr><th>الباقة</th><th>السعر (${cur})</th><th>أقل سعر</th></tr></thead><tbody>
+      ${PKGS.map(p=>`<tr><td>${p.label}</td><td><input data-p="${p.id}" data-k="p" inputmode="decimal" value="${s.prices?.[p.id]?.p||''}" aria-label="سعر ${p.label}"></td><td><input data-p="${p.id}" data-k="min" inputmode="decimal" value="${s.prices?.[p.id]?.min||''}" aria-label="أقل سعر ${p.label}"></td></tr>`).join('')}
+    </tbody></table></div>`).join('');
+  $('#supList').innerHTML=setSup.length?setSup.map((n,i)=>`<div class="sup-row" data-i="${i}"><input data-f="label" value="${esc(n.label||'')}" placeholder="الدعم الفني" aria-label="اسم الرقم"><input data-f="phone" class="ltr" inputmode="tel" value="${n.phone?'+'+esc(n.phone):''}" placeholder="05xxxxxxxx" aria-label="رقم الواتساب"><button class="btn sm ghost" type="button" data-act="supDel" data-i="${i}" aria-label="حذف">✕</button></div>`).join('')
+    :'<span class="hint">ما فيه أرقام للحين.</span>';
+}
+function readSrvEditor(){
+  const num=v=>Number(toLatin(v).replace(/[^\d.]/g,''))||0;
+  document.querySelectorAll('#srvList .srv').forEach(el=>{const s=setSrv[Number(el.dataset.i)];
+    s.name=el.querySelector('[data-f=name]').value.trim();s.url=el.querySelector('[data-f=url]').value.trim();s.prices=s.prices||{};
+    for(const p of PKGS){s.prices[p.id]={p:num(el.querySelector(`[data-p="${p.id}"][data-k=p]`).value),min:num(el.querySelector(`[data-p="${p.id}"][data-k=min]`).value)};}});
+  const d=document.querySelector('#srvList input[name=defsrv]:checked');if(d)setDefSrv=d.value;
+  document.querySelectorAll('#supList .sup-row').forEach(el=>{const n=setSup[Number(el.dataset.i)];n.label=el.querySelector('[data-f=label]').value.trim();n.phone=normPhone(el.querySelector('[data-f=phone]').value);});
+}
+function srvAdd(){readSrvEditor();const pr={};for(const p of PKGS)pr[p.id]={p:0,min:0};setSrv.push({id:'s'+Date.now().toString(36),name:'',url:'',prices:pr});renderSrvEditor();const els=document.querySelectorAll('#srvList [data-f=name]');els[els.length-1]?.focus();}
+function srvDel(i){readSrvEditor();const s=setSrv[i];const used=customers.filter(c=>c.serverId===s.id).length;
+  if(used&&!$('#setErr').dataset.confirm){$('#setErr').textContent=`${used} زبون على "${s.name}". لو حذفته يصيرون على السيرفر الافتراضي. اضغط حذف مرة ثانية للتأكيد.`;$('#setErr').hidden=false;$('#setErr').dataset.confirm='1';return}
+  delete $('#setErr').dataset.confirm;$('#setErr').hidden=true;setSrv.splice(i,1);if(!setSrv.some(x=>x.id===setDefSrv))setDefSrv=setSrv[0].id;renderSrvEditor();}
+function supAdd(){readSrvEditor();setSup.push({label:setSup.length?'رقم احتياطي':'الدعم الفني',phone:''});renderSrvEditor();const els=document.querySelectorAll('#supList [data-f=phone]');els[els.length-1]?.focus();}
+function supDel(i){readSrvEditor();setSup.splice(i,1);renderSrvEditor();}
 
 /* ---------- template restore ---------- */
 function hasOverride(id,tone){const v=settings.templates?.[id]?.[tone];return typeof v==='string'&&v.trim()!=='';}
@@ -1364,7 +1460,7 @@ function renderCal(){
   const first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),lead=first.getDay();
   const byDay={};for(const c of customers){if(c.endDate&&c.endDate.startsWith(`${y}-${pad(m+1)}`))(byDay[c.endDate]=byDay[c.endDate]||[]).push(c);}
   const monthList=Object.values(byDay).flat();
-  const expected=monthList.reduce((a,c)=>a+amountFor(c.pkg==='trial'?'1m':c.pkg,c.screen),0);
+  const expected=monthList.reduce((a,c)=>a+amountFor(c.pkg==='trial'?'1m':c.pkg,c.screen,c.serverId),0);
   const t=today();
   let cells=['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'].map(d=>`<div class="wd">${d}</div>`).join('');
   for(let i=0;i<lead;i++)cells+='<div class="day empty" aria-hidden="true"></div>';
@@ -1393,7 +1489,7 @@ function renderRep(){
   const renews90=pays.filter(p=>p.kind==='renew'&&p.date>=d90).length;
   const lost90=customers.filter(c=>!c.example&&c.endDate<t&&c.endDate>=d90).length;
   const rate=renews90+lost90?Math.round(renews90/(renews90+lost90)*100):null;
-  const exp30=customers.filter(c=>!c.example&&c.endDate>=t&&c.endDate<=addDays(t,30)).reduce((a,c)=>a+amountFor(c.pkg==='trial'?'1m':c.pkg,c.screen),0);
+  const exp30=customers.filter(c=>!c.example&&c.endDate>=t&&c.endDate<=addDays(t,30)).reduce((a,c)=>a+amountFor(c.pkg==='trial'?'1m':c.pkg,c.screen,c.serverId),0);
   const paid=pays.filter(p=>p.amount>0);const avg=paid.length?paid.reduce((a,p)=>a+p.amount,0)/paid.length:0;
   const active=customers.filter(c=>!c.example&&c.endDate>=t);
   const newThis=pays.filter(p=>p.kind==='new'&&String(p.date).startsWith(thisM.key)).length;
@@ -1412,6 +1508,7 @@ function renderRep(){
   const svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="الدخل الشهري لآخر 12 شهر"><style>.cx{font:11px var(--font-body);fill:var(--muted)}.cv{font:600 11px var(--font-body);fill:var(--fg)}</style>${grid}${bars}</svg>`;
   // breakdowns
   const byPkg=PKGS.map(p=>({l:p.label,n:active.filter(c=>c.pkg===p.id).length})).filter(x=>x.n);
+  const bySrv=getServers().map(s=>({l:s.name,n:active.filter(c=>serverOf(c.serverId).id===s.id).length})).filter(x=>x.n);
   const byDev=SCREENS.map(s=>({l:s.label,n:active.filter(c=>(c.screen||'android')===s.id).length})).filter(x=>x.n);
   const hb=list=>{const mx=Math.max(...list.map(x=>x.n),1);return list.length?`<div class="hbar">${list.map(x=>`<span>${esc(x.l)}</span><div class="track"><div class="fill" style="width:${x.n/mx*100}%"></div></div><span class="v">${x.n}</span>`).join('')}</div>`:'<span class="note">ما فيه بيانات للحين</span>';};
   const topC=customers.filter(c=>!c.example).map(c=>({c,t:(c.payments||[]).reduce((a,p)=>a+(Number(p.amount)||0),0)})).filter(x=>x.t>0).sort((a,b)=>b.t-a.t).slice(0,5);
@@ -1427,6 +1524,7 @@ function renderRep(){
     <div class="grid-2">
       <div class="card"><h3>الباقات النشطة</h3>${hb(byPkg)}</div>
       <div class="card"><h3>الأجهزة</h3>${hb(byDev)}</div>
+      ${getServers().length>1?`<div class="card"><h3>السيرفرات</h3>${hb(bySrv)}</div>`:''}
       <div class="card"><h3>هالشهر</h3><table class="tbl"><tbody>
         <tr><td>اشتراكات جديدة</td><td>${newThis}</td></tr><tr><td>تجديدات</td><td>${renThis}</td></tr>
         <tr><td>متوسط قيمة الدفعة</td><td>${fmtMoney(avg)} ${cur}</td></tr><tr><td>زبائن نشطين</td><td>${active.length}</td></tr></tbody></table></div>
@@ -1501,10 +1599,12 @@ function errText(ex,fallback){
 }
 const COLMAP=[['id','id'],['name','name'],['phone','phone'],['mac','mac'],['deviceKey','device_key'],['screen','screen'],['pkg','pkg'],
   ['startDate','start_date'],['endDate','end_date'],['notes','notes'],['referredBy','referred_by'],['qualityDone','quality_done'],
-  ['sent','sent'],['payments','payments'],['example','example'],['app','app'],['lineUser','line_user'],['linePass','line_pass']];
-function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.app=c.app||'ibo';c.lineUser=c.lineUser||'';c.linePass=c.linePass||'';c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
+  ['sent','sent'],['payments','payments'],['example','example'],['app','app'],['lineUser','line_user'],['linePass','line_pass'],['serverId','server_id']];
+function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.serverId=c.serverId||'';c.app=c.app||'ibo';c.lineUser=c.lineUser||'';c.linePass=c.linePass||'';c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
 function toRow(c){const r={};for(const [k,col] of COLMAP){if(c[k]!==undefined)r[col]=c[k];}
-  for(const k of ['phone','mac','device_key','notes','referred_by','screen','line_user','line_pass'])if(r[k]==null)r[k]='';if(!r.app)r.app='ibo';return r;}
+  for(const k of ['phone','mac','device_key','notes','referred_by','screen','line_user','line_pass','server_id'])if(r[k]==null)r[k]='';if(!serverCol)delete r.server_id;if(!r.app)r.app='ibo';return r;}
+let serverCol=true;
+const needsSchema=ex=>/server_id/.test(String(ex?.message||''));
 const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
 function deepMerge(a,b){const o={...a};for(const k of Object.keys(b)){o[k]=isObj(b[k])&&isObj(a[k])?deepMerge(a[k],b[k]):b[k]}return o}
 const must=({data,error})=>{if(error)throw error;return data;};
@@ -1526,13 +1626,15 @@ const store={
     const prev=customers.find(c=>c.id===id);if(!prev)throw new Error('missing');
     const next=deepMerge(prev,patch);
     customers=customers.map(c=>c.id===id?next:c);renderAll();
-    try{const row=toRow(next);delete row.id;mustRows(await sb.from('customers').update(row).eq('id',id).select('id'));}
+    try{let row=toRow(next);delete row.id;try{mustRows(await sb.from('customers').update(row).eq('id',id).select('id'));}
+      catch(ex){if(!needsSchema(ex))throw ex;serverCol=false;window.__dbErr='شغّل ملف schema.sql مرة ثانية في Supabase عشان ينحفظ السيرفر لكل زبون';row=toRow(next);delete row.id;mustRows(await sb.from('customers').update(row).eq('id',id).select('id'));}}
     catch(ex){customers=customers.map(c=>c.id===id?prev:c);renderAll();throw ex}
   },
   async add(doc){
     const id=(crypto.randomUUID?crypto.randomUUID():null);
     const row=toRow({...doc,id:id||undefined});
-    const saved=must(await sb.from('customers').insert(row).select('*').single());
+    let saved;try{saved=must(await sb.from('customers').insert(row).select('*').single());}
+    catch(ex){if(!needsSchema(ex))throw ex;serverCol=false;window.__dbErr='شغّل ملف schema.sql مرة ثانية في Supabase عشان ينحفظ السيرفر لكل زبون';saved=must(await sb.from('customers').insert(toRow({...doc,id:id||undefined})).select('*').single());saved.server_id=doc.serverId;}
     const c=fromRow(saved);
     if(!customers.some(x=>x.id===c.id))customers=[...customers,c];renderAll();return c.id;
   },

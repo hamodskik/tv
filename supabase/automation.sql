@@ -109,16 +109,37 @@ declare
   lines text[];
   out text[] := '{}';
   l text;
+  srv jsonb;
+  srv_name text;
+  srv_url text;
+  support text := '';
 begin
+  -- سيرفر الزبون (أو الافتراضي)
+  select x into srv from jsonb_array_elements(coalesce(s->'servers', '[]'::jsonb)) x
+   where x->>'id' = nullif(coalesce(c.server_id, ''), '') limit 1;
+  if srv is null then
+    select x into srv from jsonb_array_elements(coalesce(s->'servers', '[]'::jsonb)) x
+     where x->>'id' = coalesce(s->>'defaultServer', '') limit 1;
+  end if;
+  if srv is null then srv := (s->'servers')->0; end if;
+  srv_name := coalesce(nullif(srv->>'name', ''), s->>'server', 'سيرفر فولتشر');
+  srv_url  := coalesce(nullif(srv->>'url', ''), s->>'serverUrl', '');
+  -- أرقام الدعم
+  select string_agg('• ' || coalesce(nullif(n->>'label', ''), 'واتساب') || ': wa.me/' || regexp_replace(n->>'phone', '\D', '', 'g'), E'\n')
+    into support
+    from jsonb_array_elements(coalesce(s->'supportNumbers', '[]'::jsonb)) n
+   where coalesce(n->>'phone', '') <> '';
+  if coalesce(support, '') <> '' then support := '📞 للتواصل والدعم:' || E'\n' || support; else support := ''; end if;
   if coalesce(c.app, 'ibo') <> 'ibo' then
     login := concat_ws(E'\n',
-      case when coalesce(s->>'serverUrl', '') <> '' and c.line_user <> '' then '🌐 السيرفر: ' || (s->>'serverUrl') end,
+      case when srv_url <> '' and c.line_user <> '' then '🌐 السيرفر: ' || srv_url end,
       case when c.line_user <> '' then '👤 Username: ' || c.line_user end,
       case when c.line_pass <> '' then '🔑 Password: ' || c.line_pass end);
   end if;
   lines := string_to_array(src, E'\n');
   foreach l in array coalesce(lines, '{}') loop
-    if (position('{رابط_الدفع}' in l) > 0 and pay = '') or (position('{بيانات_الدخول}' in l) > 0 and login = '') then
+    if (position('{رابط_الدفع}' in l) > 0 and pay = '') or (position('{بيانات_الدخول}' in l) > 0 and login = '')
+       or (position('{أرقام_الدعم}' in l) > 0 and support = '') then
       continue;
     end if;
     out := out || l;
@@ -131,7 +152,8 @@ begin
   src := replace(src, '{متى}', case when d <= 0 then 'اليوم' else 'بكرة' end);
   src := replace(src, '{الباقة}', private.pkg_label(c.pkg));
   src := replace(src, '{المتجر}', coalesce(s->>'store', 'عالم محمد تيفي'));
-  src := replace(src, '{السيرفر}', coalesce(s->>'server', 'سيرفر فولتشر'));
+  src := replace(src, '{السيرفر}', srv_name);
+  src := replace(src, '{أرقام_الدعم}', support);
   src := replace(src, '{رابط_الدفع}', pay);
   src := replace(src, '{التطبيق}', app_label);
   src := replace(src, '{بيانات_الدخول}', login);
