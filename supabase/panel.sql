@@ -116,14 +116,18 @@ begin
     when 'invalid_key'       then 'مفتاح الـ API غلط أو انحذف'
     when 'key_disabled'      then 'مفتاح الـ API موقوف من البانل، فعّله من API Reseller'
     when 'ip_not_allowed'    then 'المفتاح مقيّد بعناوين IP. شيل قيد الـ IP من المفتاح، لأن عناوين Supabase تتغير'
-    when 'host_not_allowed'  then 'المفتاح مقيّد بدومين ثاني. استخدم نفس الدومين اللي في قيد المفتاح'
+    when 'host_not_allowed'  then 'المفتاح مقيّد بدومين ثاني (DOMAIN في إعدادات المفتاح). خل رابط البانل بنفس الدومين، أو غيّر دومين المفتاح'
     when 'signature_invalid' then 'المفتاح مفعّل عليه HMAC. طفّ الـ HMAC للمفتاح هذا'
     when 'https_required'    then 'لازم الرابط يبدأ بـ https://'
     when 'account_suspended' then 'حساب الريسيلر موقوف'
     when 'account_disabled'  then 'حساب الريسيلر معطّل'
     when 'rate_limited'      then 'طلبات كثيرة، بنحاول مرة ثانية بعد شوي'
     when 'circuit_open'      then 'البانل وقف الطلبات مؤقتاً بعد أخطاء كثيرة، بنحاول بعد شوي'
-    else 'البانل رد بخطأ ' || coalesce(r.status::text, '') || coalesce(' (' || code || ')', '')
+    else case
+      when code is null and r.status in (401, 403, 404, 405)
+        then 'الرابط ما يوصل لـ API الريسيلر (رد ' || r.status || '). حط الدومين والبورت بس مثل https://example.com:8443 بدون أي مسار بعده، وتأكد إن الدومين نفس دومين المفتاح'
+      when r.status between 500 and 599 then 'البانل واقف أو فيه مشكلة مؤقتة (رد ' || r.status || '). جرّب بعد شوي'
+      else 'البانل رد بخطأ ' || coalesce(r.status::text, '') || coalesce(' (' || code || ')', '') end
   end;
 end $$;
 
@@ -289,7 +293,8 @@ declare pid text := nullif(trim(cfg->>'id'), ''); url text;
 begin
   if not public.is_owner() then raise exception 'permission denied'; end if;
   if pid is null then raise exception 'missing server id'; end if;
-  url := regexp_replace(trim(coalesce(cfg->>'base_url', '')), '(/api/reseller/v1)?/*$', '');
+  -- الدومين والبورت بس (أي مسار بعدهم مثل رابط الدخول السري للبانل ينشال)
+  url := coalesce(substring(trim(coalesce(cfg->>'base_url', '')) from '^(https?://[^/?#\s]+)'), '');
   if url <> '' and url !~* '^https://' then raise exception 'الرابط لازم يبدأ بـ https://'; end if;
   insert into private.panels (id) values (pid) on conflict (id) do nothing;
   update private.panels set

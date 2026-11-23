@@ -506,7 +506,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
       <div class="status-line info" id="pn_status" hidden></div>
       <form class="form" id="pnForm" novalidate>
         <div class="field"><label for="pn_server">السيرفر</label><select id="pn_server"></select></div>
-        <div class="field"><label for="pn_url">رابط البانل</label><input id="pn_url" class="ltr" placeholder="https://panel.example.com:8443" autocomplete="off"><span class="hint">نفس الرابط اللي تفتح منه البانل، مع البورت.</span></div>
+        <div class="field"><label for="pn_url">رابط البانل</label><input id="pn_url" class="ltr" placeholder="https://panel.example.com:8443" autocomplete="off"><span class="hint">الدومين والبورت بس، بدون أي شي بعده. مثل: https://mypanel.com:8443</span></div>
         <div class="field"><label for="pn_key">مفتاح الـ API</label><input id="pn_key" type="password" class="ltr mono" autocomplete="off"></div>
         <div class="grid2">
           <div class="field"><label for="pn_hour">المزامنة اليومية الساعة</label><select id="pn_hour"></select></div>
@@ -1737,13 +1737,14 @@ function openPanelCfg(sid){
 }
 async function panelSave(){
   const err=$('#pn_err');err.hidden=true;
-  const url=$('#pn_url').value.trim(),key=$('#pn_key').value.trim(),p=panels.find(x=>x.id===pnSid);
+  const raw=$('#pn_url').value.trim(),url=(raw.match(/^https?:\/\/[^\/?#\s]+/i)||[raw])[0],key=$('#pn_key').value.trim(),p=panels.find(x=>x.id===pnSid);
+  if(url!==raw)$('#pn_url').value=url;
   if(!/^https:\/\//i.test(url)){err.textContent='الرابط لازم يبدأ بـ https:// (مثل https://panel.example.com:8443)';err.hidden=false;return false}
   if(!key&&!p?.has_key){err.textContent='الصق مفتاح الـ API';err.hidden=false;return false}
   const cfg={id:pnSid,base_url:url,enabled:$('#pn_on').checked,sync_hour:Number($('#pn_hour').value)};if(key)cfg.api_key=key;
   const {error}=await sb.rpc('set_panel',{cfg});
   if(error){err.textContent='ما قدرنا نحفظ: '+errText(error,error.message);err.hidden=false;return false}
-  $('#pn_key').value='';await loadPanel();return true;
+  $('#pn_key').value='';await loadPanel();const np=panels.find(x=>x.id===pnSid);if(np?.has_key)$('#pn_key').placeholder='محفوظ ✓ (اكتب جديد لو تبي تغيره)';return true;
 }
 $('#pnForm').addEventListener('submit',async e=>{e.preventDefault();$('#pn_save').disabled=true;
   try{if(await panelSave()){const t=await panelTestRun();if(t?.ok){await sb.rpc('request_panel_sync',{pid:pnSid});await loadPanel();pnStatus(`تم الحفظ ✓ الاتصال شغال، والرصيد ${fmtMoney(t.credits)} كريدت. بدأت أول مزامنة، تقدر تسكّر هالنافذة.`,'ok');renderAll();}}}
@@ -1755,7 +1756,7 @@ async function panelTestRun(){
   if(!data.ok){pnStatus(data.error,'err');return data}
   pnStatus(`الاتصال شغال ✓ الحساب ${data.username||''} · الرصيد ${fmtMoney(data.credits)} كريدت${data.lines?.total!=null?` · ${data.lines.total} خط`:''}${data.sandbox?' · (مفتاح Sandbox)':''}`,'ok');return data;
 }
-async function panelTest(){$('#pn_test').disabled=true;try{const p=panels.find(x=>x.id===pnSid);const typed=$('#pn_key').value.trim()||$('#pn_url').value.trim()!==(p?.base_url||'');if(typed&&!(await panelSave()))return;await panelTestRun();}finally{$('#pn_test').disabled=false}}
+async function panelTest(){$('#pn_test').disabled=true;try{const p=panels.find(x=>x.id===pnSid);const typed=$('#pn_key').value.trim()||($('#pn_url').value.trim().match(/^https?:\/\/[^\/?#\s]+/i)||[''])[0]!==(p?.base_url||'');if(typed&&!(await panelSave()))return;await panelTestRun();}finally{$('#pn_test').disabled=false}}
 function panelDelete(){askConfirm(`بنحذف ربط بانل "${serverName(pnSid)}" والمفتاح ونسخة الخطوط. زبائنك ما يتأثرون.`,'نعم، احذف الربط',async()=>{
   const {error}=await sb.rpc('delete_panel',{pid:pnSid});if(error){toast('ما قدرنا نحذف');return}await loadPanel();closeAll();setTab('panel');toast('انحذف الربط');});}
 
