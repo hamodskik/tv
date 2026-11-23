@@ -74,6 +74,11 @@ alter table public.customers add column if not exists server_id text not null de
 alter table public.customers drop constraint if exists customers_server_id_len;
 alter table public.customers add  constraint customers_server_id_len check (char_length(server_id) <= 40);
 
+-- ---------- تحديث 4: رقم طلب البانل (للخطوط اللي تنسوى من اللوحة، عشان تتجدد منها) ----------
+alter table public.customers add column if not exists panel_order_id text not null default '';
+alter table public.customers drop constraint if exists customers_panel_order_len;
+alter table public.customers add  constraint customers_panel_order_len check (char_length(panel_order_id) <= 80);
+
 create index if not exists customers_end_date_idx on public.customers (end_date);
 create index if not exists customers_line_user_idx on public.customers (line_user);
 create index if not exists customers_mac_idx on public.customers (mac);
