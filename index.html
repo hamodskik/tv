@@ -182,6 +182,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hist div{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:.88rem}
 .hist div:first-child{border-top:0}
 .hist em{font-style:normal;color:var(--muted)}
+.hist .amt{display:flex;gap:8px;align-items:center;flex:none}
+.hist .nopay{color:var(--hot);font-size:.78rem;font-weight:600}
+.pay-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .foot-acts{display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
 .notes{background:var(--surface-2);border-radius:10px;padding:10px 12px;white-space:pre-wrap;font-size:.9rem}
 
@@ -572,7 +575,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.11 (قائمة التطبيقات)';
+const APP_VERSION='1.12 (تسجيل الدفعات)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -865,6 +868,7 @@ function tasksFor(c){
 /* ---------- state ---------- */
 let db=null,canWrite=true,canDelete=true,customers=[],loaded=false,loadTimer=null;
 let tab='tasks',filter='all',query='';
+let payEdit=null;
 let openId=null,detailTpl=null,detailTone=null,detailVar=0,detailTplFor=null,renewPkg=null,renewAmt='',lastDetailSig='';
 let editingId=null,endTouched=false;
 
@@ -960,7 +964,8 @@ function renderAll(){
 function renderDetail(force){
   const c=customers.find(x=>x.id===openId);
   if(!c){closeAll();return}
-  const sig=JSON.stringify(c)+JSON.stringify(settings)+renewPkg+detailTpl+detailTone+detailVar;
+  if(!force&&payEdit!==null&&$('#pe_amt'))return;
+  const sig=JSON.stringify(c)+JSON.stringify(settings)+renewPkg+detailTpl+detailTone+detailVar+payEdit;
   if(!force&&sig===lastDetailSig)return;
   const tone=detailTone||defaultTone();const msgKey=detailTpl+'|'+tone+'|'+detailVar;
   const keepMsg=!force&&detailTplFor===msgKey?$('#msgText')?.value:null;
@@ -1015,16 +1020,63 @@ function renderDetail(force){
         <button class="btn primary" type="button" data-act="renewGo" id="btnRenew">تأكيد التجديد</button><button class="btn ghost" type="button" data-act="renewCancel">إلغاء</button></div>
       </div>`:''}
     </div>`:''}
-    ${pays.length?`<div class="sec"><h4>سجل الدفعات</h4><div class="hist">${pays.slice().reverse().map(p=>`<div><span>${p.kind==='renew'?'تجديد':p.kind==='panel'?`تمديد من البانل (+${daysWord(Number(p.days)||0)})`:p.kind==='reward'?`مكافأة إحالة (+${daysWord(Number(p.days)||0)})`:'اشتراك جديد'} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><strong class="num">${esc(String(p.amount??0))} ${esc(settings.currency||'')}</strong></div>`).join('')}</div></div>`:''}
+    ${paymentsSection(c)}
     ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button>${canDelete?`<button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button>`:''}</div>`:''}
   `;
   detailTplFor=msgKey;
 }
 
+/* ---------- payments (record / edit amounts) ---------- */
+const PAY_KINDS=[['new','اشتراك جديد'],['renew','تجديد'],['panel','تمديد من البانل'],['reward','مكافأة إحالة']];
+function payLabel(p){return p.kind==='renew'?'تجديد':p.kind==='panel'?`تمديد من البانل${p.days?` (+${daysWord(Number(p.days)||0)})`:''}`:p.kind==='reward'?`مكافأة إحالة${p.days?` (+${daysWord(Number(p.days)||0)})`:''}`:'اشتراك جديد';}
+function paymentsSection(c){
+  const pays=c.payments||[];const cur=esc(settings.currency||'');
+  if(!pays.length&&!canWrite)return '';
+  const total=pays.reduce((a,p)=>a+(Number(p.amount)||0),0);
+  const rows=pays.map((p,i)=>({p,i})).sort((a,b)=>String(b.p.date).localeCompare(String(a.p.date))||b.i-a.i);
+  const editor=i=>{const p=i==='new'?null:pays[i];const kind=p?.kind||(pays.length?'renew':'new');
+    return `<div class="renew-box">
+      <div class="line"><div class="field"><label for="pe_amt">المبلغ (${cur})</label><input id="pe_amt" class="ltr num" inputmode="decimal" value="${p&&Number(p.amount)?esc(String(p.amount)):''}" placeholder="مثلاً 140"></div>
+        <div class="field"><label for="pe_date">التاريخ</label><input id="pe_date" type="date" value="${esc(p?.date||today())}"></div></div>
+      <div class="line"><div class="field"><label for="pe_kind">النوع</label><select id="pe_kind">${PAY_KINDS.map(([k,l])=>`<option value="${k}" ${k===kind?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><label for="pe_pkg">الباقة</label><select id="pe_pkg">${PKGS.map(x=>`<option value="${x.id}" ${x.id===(p?.pkg||c.pkg)?'selected':''}>${x.label}</option>`).join('')}</select></div></div>
+      <span class="hint">تسجيل المبلغ ما يغيّر تاريخ الانتهاء. لو تبي تمدد الاشتراك من اللوحة استخدم "تجديد الاشتراك" فوق.</span>
+      <div class="formerr" id="pe_err" hidden></div>
+      <div class="line"><button class="btn primary" type="button" data-act="paySave" data-i="${i}" id="pe_save">حفظ</button><button class="btn ghost" type="button" data-act="payCancel">إلغاء</button>${i!=='new'&&canDelete?`<button class="btn danger" type="button" data-act="payDel" data-i="${i}">حذف الدفعة</button>`:''}</div>
+    </div>`;};
+  return `<div class="sec"><div class="pay-head"><h4>سجل الدفعات${pays.length?` <span class="hint">· المجموع ${fmtMoney(total)} ${cur}</span>`:''}</h4>
+      ${canWrite&&payEdit===null?'<button class="btn sm" type="button" data-act="payNew">➕ سجّل دفعة</button>':''}</div>
+    ${payEdit==='new'?editor('new'):''}
+    ${pays.length?`<div class="hist">${rows.map(({p,i})=>{const zero=!(Number(p.amount)>0)&&p.kind!=='reward';
+      return `<div><span>${esc(payLabel(p))} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><span class="amt">${zero?'<span class="nopay">بدون مبلغ</span>':`<strong class="num">${esc(String(p.amount))} ${cur}</strong>`}${canWrite&&payEdit===null?`<button class="copy" type="button" data-act="payEdit" data-i="${i}">${zero?'أضف المبلغ':'✏️ تعديل'}</button>`:''}</span></div>`;}).join('')}</div>`
+      :payEdit==='new'?'':'<span class="hint">ما فيه دفعات مسجلة لهالزبون. لو دفع لك، سجّل المبلغ عشان يدخل في التقارير.</span>'}
+    ${typeof payEdit==='number'?editor(payEdit):''}
+  </div>`;
+}
+async function paySave(i){
+  const c=customers.find(x=>x.id===openId);if(!c)return;
+  const err=$('#pe_err');err.hidden=true;
+  const amt=Number(toLatin($('#pe_amt').value).replace(/[^\d.]/g,''));const date=$('#pe_date').value;const kind=$('#pe_kind').value;const pkg=$('#pe_pkg').value;
+  if(!date){err.textContent='حدد التاريخ';err.hidden=false;return}
+  if(kind!=='reward'&&!(amt>0)){err.textContent='اكتب المبلغ';err.hidden=false;return}
+  const pays=[...(c.payments||[])];
+  if(i==='new')pays.push({date,amount:amt||0,pkg,kind});else pays[i]={...pays[i],date,amount:amt||0,pkg,kind};
+  $('#pe_save').disabled=true;
+  try{await db.update(c.id,{payments:pays});payEdit=null;renderDetail(true);toast(i==='new'?'انسجلت الدفعة ✓':'تعدّلت الدفعة ✓');}
+  catch(e){err.textContent='ما قدرنا نحفظ، جرّب مرة ثانية';err.hidden=false;$('#pe_save').disabled=false}
+}
+function payDel(i){
+  const c=customers.find(x=>x.id===openId);if(!c)return;const p=(c.payments||[])[i];if(!p)return;
+  askConfirm(`بنحذف دفعة "${payLabel(p)}" بتاريخ ${nice(p.date)} (${p.amount||0} ${settings.currency||''}). تاريخ الانتهاء ما يتغيّر.`,'نعم، احذف الدفعة',async()=>{
+    const pays=(c.payments||[]).filter((_,k)=>k!==i);
+    try{await db.update(c.id,{payments:pays});payEdit=null;show('sheetDetail');renderDetail(true);toast('انحذفت الدفعة');}catch(e){toast('ما قدرنا نحذف');show('sheetDetail');}
+  });
+}
+
 /* ---------- sheets ---------- */
 function show(id){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=s.id!==id);}
 function closeAll(){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=true);openId=null;renewPkg=null;detailTpl=null;lastDetailSig='';}
-function openDetail(id,tplId){openId=id;detailTpl=tplId||null;detailTone=null;detailVar=0;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
+function openDetail(id,tplId){payEdit=null;openId=id;detailTpl=tplId||null;detailTone=null;detailVar=0;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
 
 let toastT=null;
 function toast(text,undo){
@@ -1203,6 +1255,11 @@ document.addEventListener('click',e=>{
     case 'renewPick':{renewPkg=t.dataset.pkg;{const cc=customers.find(x=>x.id===openId);renewAmt=String(amountFor(renewPkg,cc?.screen,cc?.serverId)||'');};renderDetail(true);break}
     case 'renewCancel':renewPkg=null;renderDetail(true);break;
     case 'renewGo':doRenew();break;
+    case 'payNew':payEdit='new';renderDetail(true);setTimeout(()=>$('#pe_amt')?.focus(),30);break;
+    case 'payEdit':payEdit=Number(t.dataset.i);renderDetail(true);setTimeout(()=>{$('#pe_amt')?.focus();$('#pe_amt')?.scrollIntoView({block:'center'});},30);break;
+    case 'payCancel':payEdit=null;renderDetail(true);break;
+    case 'paySave':paySave(t.dataset.i==='new'?'new':Number(t.dataset.i));break;
+    case 'payDel':payDel(Number(t.dataset.i));break;
     case 'edit':{const c=customers.find(x=>x.id===id);if(c){openId=null;openForm(c)}break}
     case 'del':{const c=customers.find(x=>x.id===id);if(c)askDelete([id],`متأكد تبغا تحذف "${c.name}"؟ بينحذف ملفه وسجل دفعاته نهائياً.`);break}
     case 'refresh':db?.load(true);break;
