@@ -425,6 +425,9 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
           <div id="srvList" class="form"></div>
           <div><button class="btn sm" type="button" data-act="srvAdd">+ أضف سيرفر</button></div>
           <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
+        <div class="sec"><h4>🔗 ربط البانل</h4>
+          <span class="hint">عشان تسحب خطوطك وتتحدّث تواريخ زبائنك ورصيدك من البانل.</span>
+          <div><button class="btn" type="button" data-act="goPanel">افتح ربط البانل</button></div></div>
         <div class="sec"><h4>أرقام التواصل والدعم</h4>
           <span class="hint">تنضاف تلقائياً في رسالة التفعيل ورسالة التجديد كروابط واتساب سريعة، عشان الزبون يوصلك لو الرقم الأول ما رد. المتغير اسمه <b>{أرقام_الدعم}</b>.</span>
           <div id="supList" class="form"></div>
@@ -1201,6 +1204,7 @@ document.addEventListener('click',e=>{
     case 'reward':giveReward(t.dataset.id,Number(t.dataset.days),t.dataset.refs.split(','));break;
     case 'saveRewardDays':saveRewardDays();break;
     case 'pnOpen':openPanelCfg(t.dataset.sid);break;
+    case 'goPanel':{closeAll();setTab('panel');$('#tabPanel').scrollIntoView({inline:'center',block:'nearest'});const s=getServers();if(canDelete&&panelReady&&s.length===1&&!panels.some(p=>p.id===s[0].id))openPanelCfg(s[0].id);break}
     case 'pnClose':closeAll();setTab('panel');break;
     case 'pnTest':panelTest();break;
     case 'pnDelete':panelDelete();break;
