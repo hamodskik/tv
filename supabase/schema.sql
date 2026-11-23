@@ -63,7 +63,7 @@ alter table public.customers drop constraint if exists customers_screen_check;
 alter table public.customers add  constraint customers_screen_check
   check (screen in ('android', 'lg', 'samsung', 'iphone', 'phone', 'pc', 'other'));
 alter table public.customers drop constraint if exists customers_app_check;
-alter table public.customers add  constraint customers_app_check check (app in ('ibo', 'smarters', 'other'));
+alter table public.customers add  constraint customers_app_check check (char_length(app) between 1 and 40);  -- التطبيقات تنضبط من الإعدادات
 alter table public.customers drop constraint if exists customers_line_user_len;
 alter table public.customers add  constraint customers_line_user_len check (char_length(line_user) <= 100);
 alter table public.customers drop constraint if exists customers_line_pass_len;

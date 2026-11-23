@@ -425,6 +425,10 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
           <div id="srvList" class="form"></div>
           <div><button class="btn sm" type="button" data-act="srvAdd">+ أضف سيرفر</button></div>
           <div class="field"><label for="s_fee">رسوم شاشات LG وسامسونج (تنضاف على باقة السنة)</label><input id="s_fee" class="ltr num" inputmode="decimal"></div></div>
+        <div class="sec"><h4>التطبيقات</h4>
+          <span class="hint">تطلع في نموذج الزبون، واسمها ينكتب في الرسائل مكان <b>{التطبيق}</b>. مستخدمين أي تطبيق غير IBO Player توصلهم بيانات الدخول (اليوزر والباس ورابط السيرفر).</span>
+          <div id="appList" class="form"></div>
+          <div><button class="btn sm" type="button" data-act="appAdd">+ أضف تطبيق</button></div></div>
         <div class="sec"><h4>🔗 ربط البانل</h4>
           <span class="hint">عشان تسحب خطوطك وتتحدّث تواريخ زبائنك ورصيدك من البانل.</span>
           <div><button class="btn" type="button" data-act="goPanel">افتح ربط البانل</button></div></div>
@@ -568,7 +572,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.9 (بحث البانل ثابت)';
+const APP_VERSION='1.11 (قائمة التطبيقات)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -578,9 +582,15 @@ const PKGS=[
   {id:'12m',label:'سنة',months:12}
 ];
 const SCREENS=[{id:'android',label:'أندرويد / TV Box',app:'ibo'},{id:'lg',label:'شاشة LG',app:'ibo'},{id:'samsung',label:'شاشة سامسونج',app:'ibo'},
-  {id:'iphone',label:'آيفون / آيباد',app:'smarters'},{id:'phone',label:'جوال أندرويد',app:'smarters'},{id:'pc',label:'كمبيوتر',app:'smarters'},{id:'other',label:'جهاز ثاني',app:'other'}];
-const APPS=[{id:'ibo',label:'IBO Player'},{id:'smarters',label:'IPTV Smarters'},{id:'other',label:'تطبيق ثاني'}];
-const appLabel=id=>(APPS.find(a=>a.id===id)||APPS[0]).label;
+  {id:'iphone',label:'آيفون / آيباد',app:'smarters'},{id:'phone',label:'جوال أندرويد',app:'smarters'},{id:'pc',label:'كمبيوتر',app:'smarters'},{id:'other',label:'جهاز آخر',app:'other'}];
+const DEFAULT_APPS=[{id:'ibo',label:'IBO Player'},{id:'smarters',label:'IPTV Smarters'},{id:'vulture',label:'تطبيق فولتشر'},{id:'other',label:'تطبيق آخر'}];
+const CORE_APPS=['ibo','smarters','other'];
+function getApps(){
+  const own=Array.isArray(settings.apps)&&settings.apps.length?settings.apps.filter(a=>a&&a.id&&a.label):DEFAULT_APPS;
+  const out=[...own];for(const id of CORE_APPS)if(!out.some(a=>a.id===id))out.push(DEFAULT_APPS.find(a=>a.id===id));
+  return out;
+}
+const appLabel=id=>(getApps().find(a=>a.id===id)||(settings.appsArchive||[]).find(a=>a.id===id)||DEFAULT_APPS.find(a=>a.id===id)||{label:'التطبيق'}).label;
 const isIbo=c=>(c.app||'ibo')==='ibo';
 const screenLabel=id=>(SCREENS.find(s=>s.id===id)||{label:'—'}).label;
 const isPaidScreen=id=>id==='lg'||id==='samsung';
@@ -648,7 +658,7 @@ const VARS=[['{الاسم}','الاسم'],['{الجهاز}','MAC'],['{الانت
 const DEFAULT_TPLS={
 activate:{
 formal:`✨ *أهلاً بك في {المتجر} ({السيرفر})* ✨
-تم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر تطبيق *{التطبيق}* 🟢
+تم *تفعيل اشتراكك بنجاح* وربطه مباشرة بشاشتك عبر *{التطبيق}* 🟢
 
 *الباقة:* {السيرفر} | {الباقة}
 *الجهاز:* {الجهاز}
@@ -656,7 +666,7 @@ formal:`✨ *أهلاً بك في {المتجر} ({السيرفر})* ✨
 *ينتهي في:* {الانتهاء}
 *الحالة:* مكتمل عن بُعد ✅
 
-*طريقة التشغيل:* أغلق تطبيق {التطبيق} وأعد فتحه وستعمل القنوات فوراً.
+*طريقة التشغيل:* أغلق {التطبيق} وأعد فتحه وستعمل القنوات فوراً.
 
 {أرقام_الدعم}`,
 friendly:`أهلاً {الاسم} 👋
@@ -667,7 +677,7 @@ friendly:`أهلاً {الاسم} 👋
 {بيانات_الدخول}
 📅 ينتهي في: {الانتهاء}
 
-سكّر تطبيق {التطبيق} وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍
+سكّر {التطبيق} وافتحه من جديد، والقنوات بتشتغل على طول. وأي شي تحتاجه احنا موجودين 🤍
 
 {أرقام_الدعم}`,
 hype:`🔥🔥 *مبروك {الاسم}!* 🔥🔥
@@ -765,7 +775,7 @@ short:`كيف الجودة عندك يا {الاسم}؟ قيّمها من 1 إل
 renewed:{
 formal:`✅ *تم تجديد اشتراكك بنجاح*
 مرحباً {الاسم}، تم تمديد اشتراكك على جهازك {الجهاز} حتى {الانتهاء}.
-يُرجى إغلاق تطبيق {التطبيق} وإعادة فتحه. شكراً لثقتك في {المتجر}.
+يُرجى إغلاق {التطبيق} وإعادة فتحه. شكراً لثقتك في {المتجر}.
 
 {أرقام_الدعم}`,
 friendly:`✅ *تم تجديد اشتراكك*
@@ -821,7 +831,7 @@ function fillTpl(src,c){
   const map={'{الاسم}':c.name||'','{الجهاز}':c.mac||screenLabel(c.screen),'{التطبيق}':appLabel(c.app),'{بيانات_الدخول}':login,'{الانتهاء}':nice(c.endDate),'{المتبقي}':daysWord(Math.max(d,0)),
     '{متى}':d<=0?'اليوم':'بكرة','{الباقة}':pkgLabel(c.pkg),'{المتجر}':s.store||'','{السيرفر}':srv.name||'','{أرقام_الدعم}':sup,'{رابط_الدفع}':s.payLink||''};
   return src.split('\n').filter(l=>!(l.includes('{رابط_الدفع}')&&!s.payLink)&&!(l.includes('{بيانات_الدخول}')&&!login)&&!(l.includes('{أرقام_الدعم}')&&!sup)).join('\n')
-    .replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).trim();
+    .replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).replace(/تطبيق(\s+\*?)تطبيق /g,'تطبيق$1').trim();
 }
 function tpl(id,c,tone,vi){const v=variants(id,tone||defaultTone());return v.length?fillTpl(v[(vi||0)%v.length],c):'';}
 const waUrl=(phone,text)=>`https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
@@ -1029,7 +1039,6 @@ async function copyText(v,btn){
 
 /* ---------- form ---------- */
 function fillPkgSelect(){
-  $('#f_app').innerHTML=APPS.map(a=>`<option value="${a.id}">${a.label}</option>`).join('');
   $('#f_screen').innerHTML=SCREENS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('');
   $('#f_pkg').innerHTML=PKGS.map(p=>`<option value="${p.id}">${p.label}</option>`).join('');
 }
@@ -1070,7 +1079,9 @@ function openForm(c){
   $('#pasteBox').hidden=!!c;$('#amountField').hidden=!!c;
   $('#f_paste').value='';$('#f_name').value=c?.name||'';$('#f_phone').value=c?.phone?'+'+c.phone:'';
   $('#f_mac').value=c?.mac||'';$('#f_key').value=c?.deviceKey||'';$('#f_ref').value=c?.referredBy||'';$('#f_notes').value=c?.notes||'';
-  $('#f_pkg').value=c?.pkg||'12m';$('#f_screen').value=c?.screen||'android';$('#f_app').value=c?.app||'ibo';$('#f_luser').value=c?.lineUser||'';$('#f_lpass').value=c?.linePass||'';syncAppFields();$('#f_start').value=c?.startDate||today();$('#f_end').value=c?.endDate||'';
+  $('#f_pkg').value=c?.pkg||'12m';$('#f_screen').value=c?.screen||'android';
+  {const apps=getApps();if(c?.app&&!apps.some(a=>a.id===c.app))apps.push({id:c.app,label:appLabel(c.app)});$('#f_app').innerHTML=apps.map(a=>`<option value="${esc(a.id)}">${esc(a.label)}</option>`).join('');}
+  $('#f_app').value=c?.app||'ibo';$('#f_luser').value=c?.lineUser||'';$('#f_lpass').value=c?.linePass||'';syncAppFields();$('#f_start').value=c?.startDate||today();$('#f_end').value=c?.endDate||'';
   $('#f_server').innerHTML=getServers().map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');$('#f_server').value=c?.serverId&&getServers().some(s=>s.id===c.serverId)?c.serverId:defaultServerId();
   $('#f_amount').value=c?'':(amountFor('12m','android',$('#f_server').value)||'');
   $('#formErr').hidden=true;$('#h_mac').textContent='';$('#h_mac').className='hint';
@@ -1176,6 +1187,8 @@ document.addEventListener('click',e=>{
     case 'srvAdd':srvAdd();break;
     case 'srvDel':srvDel(Number(t.dataset.i));break;
     case 'supAdd':supAdd();break;
+    case 'appAdd':appAdd();break;
+    case 'appDel':appDel(Number(t.dataset.i));break;
     case 'supDel':supDel(Number(t.dataset.i));break;
     case 'msgReset':renderDetail(true);toast('رجعت الرسالة لنص القالب');break;
     case 'tplRestore':restoreTemplates([[t.dataset.tpl,t.dataset.tone]]);break;
@@ -1259,6 +1272,7 @@ $('#f_paste').addEventListener('input',e=>{
 function openSettings(){
   $('#appVersion').textContent='إصدار اللوحة: '+APP_VERSION;
   $('#s_store').value=settings.store||'';$('#s_pay').value=settings.payLink||'';
+  setApps=JSON.parse(JSON.stringify(getApps()));
   setSrv=JSON.parse(JSON.stringify(getServers()));setDefSrv=defaultServerId();setSup=JSON.parse(JSON.stringify(settings.supportNumbers||[]));renderSrvEditor();
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
   $('#s_fee').value=settings.screenFee??35;
@@ -1277,7 +1291,7 @@ $('#setForm').addEventListener('submit',async e=>{
   const def=setSrv.find(s=>s.id===setDefSrv)||setSrv[0];
   const prices={};for(const p of PKGS)prices[p.id]=def.prices[p.id].p;
   const next={...settings,store:$('#s_store').value.trim()||DEFAULTS.store,server:def.name,payLink:$('#s_pay').value.trim(),serverUrl:def.url,
-    servers:setSrv,defaultServer:def.id,supportNumbers:setSup.filter(n=>n.phone),
+    servers:setSrv,defaultServer:def.id,supportNumbers:setSup.filter(n=>n.phone),apps:setApps.filter(a=>a.label),appsArchive:[...(settings.appsArchive||[]),...getApps().filter(x=>!setApps.some(y=>y.id===x.id))].filter((x,i,arr)=>arr.findIndex(y=>y.id===x.id)===i),
     cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly'};
   $('#btnSetSave').disabled=true;
   try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');syncResolved();}
@@ -1286,7 +1300,7 @@ $('#setForm').addEventListener('submit',async e=>{
 });
 
 /* ---------- servers & support editor (settings) ---------- */
-let setSrv=[],setDefSrv='',setSup=[];
+let setSrv=[],setDefSrv='',setSup=[],setApps=[];
 function renderSrvEditor(){
   const cur=esc(settings.currency||'');
   $('#srvList').innerHTML=setSrv.map((s,i)=>`<div class="srv" data-i="${i}">
@@ -1297,6 +1311,8 @@ function renderSrvEditor(){
     <table class="ptable"><thead><tr><th>الباقة</th><th>السعر (${cur})</th><th>أقل سعر</th></tr></thead><tbody>
       ${PKGS.map(p=>`<tr><td>${p.label}</td><td><input data-p="${p.id}" data-k="p" inputmode="decimal" value="${s.prices?.[p.id]?.p||''}" aria-label="سعر ${p.label}"></td><td><input data-p="${p.id}" data-k="min" inputmode="decimal" value="${s.prices?.[p.id]?.min||''}" aria-label="أقل سعر ${p.label}"></td></tr>`).join('')}
     </tbody></table></div>`).join('');
+  $('#appList').innerHTML=setApps.map((a,i)=>{const used=customers.filter(c=>(c.app||'ibo')===a.id).length;
+    return `<div class="sup-row" data-i="${i}" style="grid-template-columns:minmax(0,1fr) auto auto"><input data-f="label" value="${esc(a.label)}" aria-label="اسم التطبيق" placeholder="اسم التطبيق"><span class="hint">${used?`${used} زبون`:''}</span>${CORE_APPS.includes(a.id)?'<span></span>':`<button class="btn sm ghost" type="button" data-act="appDel" data-i="${i}" aria-label="حذف">✕</button>`}</div>`;}).join('');
   $('#supList').innerHTML=setSup.length?setSup.map((n,i)=>`<div class="sup-row" data-i="${i}"><input data-f="label" value="${esc(n.label||'')}" placeholder="الدعم الفني" aria-label="اسم الرقم"><input data-f="phone" class="ltr" inputmode="tel" value="${n.phone?'+'+esc(n.phone):''}" placeholder="05xxxxxxxx" aria-label="رقم الواتساب"><button class="btn sm ghost" type="button" data-act="supDel" data-i="${i}" aria-label="حذف">✕</button></div>`).join('')
     :'<span class="hint">ما فيه أرقام للحين.</span>';
 }
@@ -1306,12 +1322,17 @@ function readSrvEditor(){
     s.name=el.querySelector('[data-f=name]').value.trim();s.url=el.querySelector('[data-f=url]').value.trim();s.prices=s.prices||{};
     for(const p of PKGS){s.prices[p.id]={p:num(el.querySelector(`[data-p="${p.id}"][data-k=p]`).value),min:num(el.querySelector(`[data-p="${p.id}"][data-k=min]`).value)};}});
   const d=document.querySelector('#srvList input[name=defsrv]:checked');if(d)setDefSrv=d.value;
+  document.querySelectorAll('#appList .sup-row').forEach(el=>{const a=setApps[Number(el.dataset.i)];a.label=el.querySelector('[data-f=label]').value.trim()||a.label;});
   document.querySelectorAll('#supList .sup-row').forEach(el=>{const n=setSup[Number(el.dataset.i)];n.label=el.querySelector('[data-f=label]').value.trim();n.phone=normPhone(el.querySelector('[data-f=phone]').value);});
 }
 function srvAdd(){readSrvEditor();const pr={};for(const p of PKGS)pr[p.id]={p:0,min:0};setSrv.push({id:'s'+Date.now().toString(36),name:'',url:'',prices:pr});renderSrvEditor();const els=document.querySelectorAll('#srvList [data-f=name]');els[els.length-1]?.focus();}
 function srvDel(i){readSrvEditor();const s=setSrv[i];const used=customers.filter(c=>c.serverId===s.id).length;
   if(used&&!$('#setErr').dataset.confirm){$('#setErr').textContent=`${used} زبون على "${s.name}". لو حذفته يصيرون على السيرفر الافتراضي. اضغط حذف مرة ثانية للتأكيد.`;$('#setErr').hidden=false;$('#setErr').dataset.confirm='1';return}
   delete $('#setErr').dataset.confirm;$('#setErr').hidden=true;setSrv.splice(i,1);if(!setSrv.some(x=>x.id===setDefSrv))setDefSrv=setSrv[0].id;renderSrvEditor();}
+function appAdd(){readSrvEditor();setApps.push({id:'a'+Date.now().toString(36),label:''});renderSrvEditor();const els=document.querySelectorAll('#appList [data-f=label]');els[els.length-1]?.focus();}
+function appDel(i){readSrvEditor();const a=setApps[i];const used=customers.filter(c=>c.app===a.id).length;
+  if(used&&!$('#setErr').dataset.appconfirm){$('#setErr').textContent=`${used} زبون على "${a.label}". لو حذفته يبقى اسمه عندهم بس ما يطلع في القائمة. اضغط ✕ مرة ثانية للتأكيد.`;$('#setErr').hidden=false;$('#setErr').dataset.appconfirm='1';return}
+  delete $('#setErr').dataset.appconfirm;$('#setErr').hidden=true;setApps.splice(i,1);renderSrvEditor();}
 function supAdd(){readSrvEditor();setSup.push({label:setSup.length?'رقم احتياطي':'الدعم الفني',phone:''});renderSrvEditor();const els=document.querySelectorAll('#supList [data-f=phone]');els[els.length-1]?.focus();}
 function supDel(i){readSrvEditor();setSup.splice(i,1);renderSrvEditor();}
 

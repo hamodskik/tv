@@ -88,7 +88,7 @@ $$;
 create or replace function private.screen_label(s text) returns text
 language sql immutable as $$
   select case s when 'android' then 'أندرويد / TV Box' when 'lg' then 'شاشة LG' when 'samsung' then 'شاشة سامسونج'
-    when 'iphone' then 'آيفون / آيباد' when 'phone' then 'جوال أندرويد' when 'pc' then 'كمبيوتر' else 'جهاز ثاني' end
+    when 'iphone' then 'آيفون / آيباد' when 'phone' then 'جوال أندرويد' when 'pc' then 'كمبيوتر' else 'جهاز آخر' end
 $$;
 
 create or replace function private.pkg_label(p text) returns text
@@ -105,7 +105,9 @@ declare
   d int := c.end_date - today;
   pay text := coalesce(s->>'payLink', '');
   login text := '';
-  app_label text := case coalesce(c.app, 'ibo') when 'ibo' then 'IBO Player' when 'smarters' then 'IPTV Smarters' else 'التطبيق' end;
+  app_label text := coalesce(
+    (select nullif(a->>'label', '') from jsonb_array_elements(coalesce(s->'apps', '[]'::jsonb)) a where a->>'id' = coalesce(c.app, 'ibo') limit 1),
+    case coalesce(c.app, 'ibo') when 'ibo' then 'IBO Player' when 'smarters' then 'IPTV Smarters' when 'vulture' then 'تطبيق فولتشر' else 'التطبيق' end);
   lines text[];
   out text[] := '{}';
   l text;
@@ -157,6 +159,7 @@ begin
   src := replace(src, '{رابط_الدفع}', pay);
   src := replace(src, '{التطبيق}', app_label);
   src := replace(src, '{بيانات_الدخول}', login);
+  src := regexp_replace(src, 'تطبيق(\s+\*?)تطبيق ', 'تطبيق\1', 'g');  -- "تطبيق تطبيق فولتشر" ← "تطبيق فولتشر"
   return btrim(src, E' \n');
 end $$;
 
