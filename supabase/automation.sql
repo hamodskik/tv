@@ -214,6 +214,7 @@ declare
   n_active int; n_urgent int; n_d3 int; n_d7 int; n_lost int; n_quality int; n_queue int;
   urgent_names text; d3_names text; lost_names text; revenue numeric;
   url text := coalesce(nullif(s->>'dashboardUrl', ''), 'https://hamodskik.github.io/tv/');
+  panel_txt text;
   msg text;
 begin
   select count(*) filter (where end_date >= today),
@@ -249,6 +250,17 @@ begin
     || '💰 دخل هالشهر: ' || trim(to_char(revenue, 'FM999,999,990')) || ' ' || cur;
   if n_queue > 0 then
     msg := msg || E'\n' || '🤖 رسائل تلقائية مجدولة اليوم: ' || n_queue;
+  end if;
+  -- رصيد الكريدت من البانلات المربوطة (لو ملف panel.sql مركّب)
+  if to_regclass('private.panels') is not null then
+    execute $q$
+      select string_agg('💳 رصيد ' || coalesce((select x->>'name' from jsonb_array_elements(coalesce($1->'servers', '[]'::jsonb)) x
+                                                where x->>'id' = p.id limit 1), p.account_name, p.id)
+                        || ': ' || trim(to_char(p.credits, 'FM999,999,990')) || ' كريدت'
+                        || case when p.last_status = 'error' then ' ⚠️ (آخر مزامنة فشلت)' else '' end, E'\n')
+        from private.panels p where p.enabled and p.credits is not null $q$
+      into panel_txt using s;
+    if panel_txt is not null then msg := msg || E'\n' || panel_txt; end if;
   end if;
   if n_urgent = 0 and n_d3 = 0 and n_lost = 0 then
     msg := msg || E'\n\n' || '✅ ما فيه شي عاجل اليوم';

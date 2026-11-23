@@ -273,6 +273,21 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
 .ptable input{width:100%;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 8px;direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
 .sup-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto;gap:8px;align-items:center}
 .sup-row input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 10px;min-width:0;width:100%}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.pcard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.pcard h3{margin:0;font-family:var(--font-display);font-weight:600;font-size:1.05rem}
+.pstats{display:flex;gap:18px;flex-wrap:wrap}
+.pstats div{display:flex;flex-direction:column}
+.pstats b{font-family:var(--font-display);font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums}
+.pstats span{font-size:.78rem;color:var(--muted);font-weight:600}
+.pacts{display:flex;gap:6px;flex-wrap:wrap}
+.pl-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.pl-row:first-child{border-top:0}
+.pl-row .u{font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+.pl-row .meta{font-size:.8rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.pl-row .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pl-row .linkbox{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.pl-row .linkbox select{flex:1 1 180px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;min-width:0}
 .toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:12px;z-index:60;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);font-weight:600;font-size:.9rem;max-width:calc(100% - 32px)}
 .toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700}
 </style>
@@ -315,12 +330,14 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
     <button class="tab" role="tab" id="tabCal" data-act="tab" data-tab="cal" aria-selected="false">التقويم</button>
     <button class="tab" role="tab" id="tabRep" data-act="tab" data-tab="rep" aria-selected="false">التقارير</button>
     <button class="tab" role="tab" id="tabRef" data-act="tab" data-tab="ref" aria-selected="false">الإحالات</button>
+    <button class="tab" role="tab" id="tabPanel" data-act="tab" data-tab="panel" aria-selected="false">البانل <span class="count" id="cntPanel" hidden>0</span></button>
   </div>
 
   <section id="viewTasks" class="group" aria-live="polite"><div id="outboxBox"></div><div id="tasksBody"></div></section>
   <section id="viewCal" class="group" hidden></section>
   <section id="viewRep" class="group" hidden></section>
   <section id="viewRef" class="group" hidden></section>
+  <section id="viewPanel" class="group" hidden></section>
 
   <section id="viewList" class="group" hidden>
     <div class="tools">
@@ -475,6 +492,34 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
           <button class="btn ghost" type="button" data-act="aEnqueue" id="a_enq">جهّز تذكيرات اليوم الحين</button>
         </div>
         <div class="preview" id="a_prev" hidden></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- panel connection -->
+  <div class="scrim" id="sheetPanel" hidden data-scrim>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pnTitle">
+      <div class="sheet-head"><h3 id="pnTitle">ربط البانل</h3><button class="x" type="button" data-act="pnClose" aria-label="إغلاق">×</button></div>
+      <div class="status-line info" id="pn_status" hidden></div>
+      <form class="form" id="pnForm" novalidate>
+        <div class="field"><label for="pn_server">السيرفر</label><select id="pn_server"></select></div>
+        <div class="field"><label for="pn_url">رابط البانل</label><input id="pn_url" class="ltr" placeholder="https://panel.example.com:8443" autocomplete="off"><span class="hint">نفس الرابط اللي تفتح منه البانل، مع البورت.</span></div>
+        <div class="field"><label for="pn_key">مفتاح الـ API</label><input id="pn_key" type="password" class="ltr mono" autocomplete="off"></div>
+        <div class="grid2">
+          <div class="field"><label for="pn_hour">المزامنة اليومية الساعة</label><select id="pn_hour"></select></div>
+          <div class="field"><label>&nbsp;</label><label class="switch" for="pn_on"><span>المزامنة شغالة</span><input type="checkbox" id="pn_on"></label></div>
+        </div>
+        <div class="help"><ol>
+          <li>في البانل: <b>API Reseller ← Create key</b>، واكتب أي اسم في Full Name، واختر <b>General</b>.</li>
+          <li><b>لا تفعّل HMAC ولا قيد IP</b> للمفتاح، لأن عناوين Supabase تتغير.</li>
+          <li>انسخ المفتاح والصقه هنا. ينحفظ داخل Supabase بمكان خاص، وما يطلع في اللوحة ولا في GitHub.</li>
+          <li>المزامنة <b>تقرأ بس</b>: ما تسوي خطوط ولا تصرف كريدت.</li></ol></div>
+        <div class="formerr" id="pn_err" hidden></div>
+        <div class="form-foot">
+          <button class="btn primary" type="submit" id="pn_save">حفظ</button>
+          <button class="btn" type="button" data-act="pnTest" id="pn_test">اختبار الاتصال</button>
+          <button class="btn danger" type="button" data-act="pnDelete" id="pn_del">حذف الربط</button>
+        </div>
       </form>
     </div>
   </div>
@@ -889,7 +934,8 @@ function renderAll(){
   $('#brandName').textContent=settings.store||DEFAULTS.store;
   $('#brandSub').textContent=`لوحة الزبائن · ${getServers().map(s=>s.name).join('، ')}`;
   renderNotice();renderKpis();renderOutbox();renderTasks();renderList();
-  if(tab==='cal')renderCal();if(tab==='rep')renderRep();if(tab==='ref')renderRef();
+  if(tab==='cal')renderCal();if(tab==='rep')renderRep();if(tab==='ref')renderRef();if(tab==='panel')renderPanel();
+  {const n=panelLines.filter(l=>!l.customer_id&&lineActive(l)).length;const el=$('#cntPanel');el.hidden=!n;el.textContent=n;}
   $('#fab').hidden=!canWrite;$('#btnAuto').hidden=!canDelete||!db;
   const dl=$('#custNames');if(dl)dl.innerHTML=[...new Set(customers.map(c=>c.name))].map(n=>`<option value="${esc(n)}"></option>`).join('');
   if(openId)renderDetail(false);
@@ -924,10 +970,11 @@ function renderDetail(force){
       ${fact('التطبيق',appLabel(c.app))}
       ${fact('تاريخ التفعيل',nice(c.startDate))}
       ${fact('تاريخ الانتهاء',nice(c.endDate))}
-      ${fact('عدد التجديدات',String(pays.filter(p=>p.kind==='renew').length))}
+      ${fact('عدد التجديدات',String(pays.filter(p=>p.kind==='renew'||p.kind==='panel').length))}
       ${fact('إجمالي اللي دفعه',`${Math.round(total).toLocaleString('en-US')} ${settings.currency||''}`)}
       ${fact('مين أحاله',c.referredBy||'—')}
     </div>
+    ${panelFact(c)}
     ${c.notes?`<div class="notes">${esc(c.notes)}</div>`:''}
     <div class="sec">
       <h4>أرسل رسالة واتساب</h4>
@@ -953,7 +1000,7 @@ function renderDetail(force){
         <button class="btn primary" type="button" data-act="renewGo" id="btnRenew">تأكيد التجديد</button><button class="btn ghost" type="button" data-act="renewCancel">إلغاء</button></div>
       </div>`:''}
     </div>`:''}
-    ${pays.length?`<div class="sec"><h4>سجل الدفعات</h4><div class="hist">${pays.slice().reverse().map(p=>`<div><span>${p.kind==='renew'?'تجديد':p.kind==='reward'?`مكافأة إحالة (+${daysWord(Number(p.days)||0)})`:'اشتراك جديد'} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><strong class="num">${esc(String(p.amount??0))} ${esc(settings.currency||'')}</strong></div>`).join('')}</div></div>`:''}
+    ${pays.length?`<div class="sec"><h4>سجل الدفعات</h4><div class="hist">${pays.slice().reverse().map(p=>`<div><span>${p.kind==='renew'?'تجديد':p.kind==='panel'?`تمديد من البانل (+${daysWord(Number(p.days)||0)})`:p.kind==='reward'?`مكافأة إحالة (+${daysWord(Number(p.days)||0)})`:'اشتراك جديد'} · ${esc(pkgLabel(p.pkg))} <em>${esc(nice(p.date))}</em></span><strong class="num">${esc(String(p.amount??0))} ${esc(settings.currency||'')}</strong></div>`).join('')}</div></div>`:''}
     ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button>${canDelete?`<button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button>`:''}</div>`:''}
   `;
   detailTplFor=msgKey;
@@ -1153,6 +1200,17 @@ document.addEventListener('click',e=>{
     case 'calDay':calSel=t.dataset.d;renderCal();break;
     case 'reward':giveReward(t.dataset.id,Number(t.dataset.days),t.dataset.refs.split(','));break;
     case 'saveRewardDays':saveRewardDays();break;
+    case 'pnOpen':openPanelCfg(t.dataset.sid);break;
+    case 'pnClose':closeAll();setTab('panel');break;
+    case 'pnTest':panelTest();break;
+    case 'pnDelete':panelDelete();break;
+    case 'pnSync':panelSync(t.dataset.sid);break;
+    case 'plFilter':plFilter=t.dataset.f;renderPanel();break;
+    case 'plImport':panelImport(t.dataset.sid,[Number(t.dataset.line)]);break;
+    case 'plImportAll':{const sid=t.dataset.sid;const ids=panelLines.filter(l=>l.panel_id===sid&&!l.customer_id&&lineActive(l)).map(l=>l.line_id);
+      askConfirm(`بنضيف ${ids.length} خط فعّال كزبائن جدد. الاسم من اسم الخط، والجوال لو مكتوب فيه. تقدر تعدّلهم بعدين.`,'نعم، استورد',()=>panelImport(sid,ids));break}
+    case 'plLinkOpen':plLinking=plLinking===t.dataset.key?null:t.dataset.key;renderPanel();break;
+    case 'plLinkGo':panelLinkTo(t.dataset.sid,t.dataset.user,$('#plLinkSel').value);break;
     case 'logout':logout();break;
     case 'clearEx':{const ids=customers.filter(c=>c.example).map(c=>c.id);askDelete(ids,`بنحذف ${ids.length} زبائن تجريبيين. زبائنك الحقيقيين ما يتأثرون.`);break}
   }
@@ -1160,13 +1218,14 @@ document.addEventListener('click',e=>{
 $('#cfYes').addEventListener('click',async()=>{if(pendingAction){const fn=pendingAction;pendingAction=null;$('#cfYes').disabled=true;try{await fn()}finally{$('#cfYes').disabled=false}}else doDelete();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 document.addEventListener('input',e=>{
+  if(e.target.id==='plq'){plQuery=e.target.value;renderPanelLines();return}
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
   if(e.target.id==='r_amt')renewAmt=e.target.value;
   if(e.target.id==='q'){query=e.target.value;renderList();}
 });
-const TABVIEWS={tasks:['#tabTasks','#viewTasks'],list:['#tabList','#viewList'],cal:['#tabCal','#viewCal'],rep:['#tabRep','#viewRep'],ref:['#tabRef','#viewRef']};
+const TABVIEWS={tasks:['#tabTasks','#viewTasks'],list:['#tabList','#viewList'],cal:['#tabCal','#viewCal'],rep:['#tabRep','#viewRep'],ref:['#tabRef','#viewRef'],panel:['#tabPanel','#viewPanel']};
 function setTab(t){tab=t;for(const [k,[tb,vw]] of Object.entries(TABVIEWS)){$(tb).setAttribute('aria-selected',k===t);$(vw).hidden=k!==t;}
-  if(t==='cal')renderCal();if(t==='rep')renderRep();if(t==='ref')renderRef();}
+  if(t==='cal')renderCal();if(t==='rep')renderRep();if(t==='ref')renderRef();if(t==='panel')renderPanel();}
 
 $('#custForm').addEventListener('submit',saveForm);
 const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value,$('#f_server').value)||'';amountHint();};
@@ -1486,14 +1545,14 @@ function renderRep(){
   const thisM=months[11],lastM=months[10];
   const delta=lastM.sum?Math.round((thisM.sum-lastM.sum)/lastM.sum*100):null;
   const t=today(),d90=addDays(t,-90);
-  const renews90=pays.filter(p=>p.kind==='renew'&&p.date>=d90).length;
+  const renews90=pays.filter(p=>(p.kind==='renew'||p.kind==='panel')&&p.date>=d90).length;
   const lost90=customers.filter(c=>!c.example&&c.endDate<t&&c.endDate>=d90).length;
   const rate=renews90+lost90?Math.round(renews90/(renews90+lost90)*100):null;
   const exp30=customers.filter(c=>!c.example&&c.endDate>=t&&c.endDate<=addDays(t,30)).reduce((a,c)=>a+amountFor(c.pkg==='trial'?'1m':c.pkg,c.screen,c.serverId),0);
   const paid=pays.filter(p=>p.amount>0);const avg=paid.length?paid.reduce((a,p)=>a+p.amount,0)/paid.length:0;
   const active=customers.filter(c=>!c.example&&c.endDate>=t);
   const newThis=pays.filter(p=>p.kind==='new'&&String(p.date).startsWith(thisM.key)).length;
-  const renThis=pays.filter(p=>p.kind==='renew'&&String(p.date).startsWith(thisM.key)).length;
+  const renThis=pays.filter(p=>(p.kind==='renew'||p.kind==='panel')&&String(p.date).startsWith(thisM.key)).length;
   const stat=(lbl,val,sub,cls)=>`<div class="stat"><span class="lbl">${lbl}</span><span class="val">${val}</span>${sub?`<span class="sub ${cls||''}">${sub}</span>`:''}</div>`;
   // chart
   const W=Math.max(300,Math.min(980,(v.clientWidth||640)-30)),H=230,padL=44,padR=10,padT=24,padB=28;const max=Math.max(...months.map(x=>x.sum),1);
@@ -1579,6 +1638,123 @@ async function giveReward(id,days,refs){
   }catch(e){toast('ما قدرنا نضيف المكافأة')}
 }
 
+/* ---------- panel (Reseller API) ---------- */
+let panels=[],panelLines=[],panelReady=false,plFilter='active',plQuery='',plLinking=null,plShow=60,pnSid=null;
+const lineActive=l=>l.enabled&&!l.banned&&(!l.expires_at||new Date(l.expires_at)>new Date());
+const lineEnd=l=>l.expires_at?new Date(l.expires_at).toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}):null;
+function ago(ts){if(!ts)return 'ما صارت';const m=Math.round((Date.now()-new Date(ts))/60000);if(m<1)return 'الحين';if(m<60)return `قبل ${m} دقيقة`;const hh=Math.round(m/60);if(hh<24)return `قبل ${hh} ساعة`;return `قبل ${daysWord(Math.round(hh/24))}`;}
+async function loadPanel(){
+  try{
+    const {data,error}=await sb.rpc('get_panels');if(error)throw error;panels=data||[];panelReady=true;
+    if(panels.length){const {data:ls,error:e2}=await sb.from('panel_lines').select('panel_id,line_id,username,fullname,expires_at,enabled,banned,is_trial,phone_found,customer_id,playlist_host,active_connections,max_connections,synced_at').limit(10000);if(e2)throw e2;panelLines=ls||[];}
+    else panelLines=[];
+  }catch(e){panels=[];panelLines=[];panelReady=false}
+}
+const pnSyncing=p=>p.requested_at&&(!p.last_sync_started||new Date(p.requested_at)>new Date(p.last_sync_started)||(p.last_sync_at&&new Date(p.last_sync_started)>new Date(p.last_sync_at)));
+let pnPoll=null;
+function pollPanel(){clearTimeout(pnPoll);if(panels.some(pnSyncing))pnPoll=setTimeout(async()=>{const before=JSON.stringify(panels.map(p=>p.last_sync_at));await loadPanel();
+  if(JSON.stringify(panels.map(p=>p.last_sync_at))!==before){await store.load();const p=panels.find(x=>x.last_status==='ok'&&x.last_result);toast(p?.last_result?`انتهت المزامنة: ${p.last_result.linked||0} مربوط · ${p.last_result.dates_updated||0} تاريخ تحدّث · ${p.last_result.phones_added||0} جوال انضاف`:'انتهت المزامنة');}
+  else renderAll();pollPanel();},10000);}
+function panelFact(c){
+  const l=panelLines.find(x=>x.customer_id===c.id);if(!l)return '';
+  const st=l.banned?'محظور':!l.enabled?'موقوف':lineActive(l)?'شغال ✓':'منتهي';
+  return `<div class="notes">🔗 <b>البانل:</b> ${st} · خط #${l.line_id}${l.max_connections?` · ${l.active_connections||0}/${l.max_connections} متصل`:''}${lineEnd(l)?` · ينتهي ${esc(nice(lineEnd(l)))}`:''}${l.playlist_host?` · <span class="mono">${esc(l.playlist_host)}</span>`:''} <span class="hint">(${esc(ago(l.synced_at))})</span></div>`;
+}
+function renderPanel(){
+  const v=$('#viewPanel');
+  if(!panelReady){v.innerHTML=`<div class="empty"><strong>ربط البانل مو مركّب للحين</strong><span>شغّل ملف <b>panel.sql</b> في Supabase (SQL Editor)، وارجع هنا.</span></div>`;return}
+  const srvs=getServers();
+  const cards=srvs.map(s=>{const p=panels.find(x=>x.id===s.id);
+    if(!p)return `<div class="pcard"><div class="pcard-head"><h3>${esc(s.name)}</h3>${canDelete?`<button class="btn primary sm" type="button" data-act="pnOpen" data-sid="${esc(s.id)}">ربط البانل</button>`:''}</div><span class="hint">مو مربوط. اربطه عشان تسحب خطوطه وتتحدّث تواريخ زبائنه لحالها.</span></div>`;
+    const lines=panelLines.filter(l=>l.panel_id===s.id),unl=lines.filter(l=>!l.customer_id&&lineActive(l)).length,lk=lines.filter(l=>l.customer_id).length;
+    const syncing=pnSyncing(p);const res=p.last_result||{};
+    return `<div class="pcard"><div class="pcard-head"><div><h3>${esc(s.name)}</h3><span class="hint">${p.account_name?esc(p.account_name)+' · ':''}آخر مزامنة: ${esc(ago(p.last_sync_at))}${p.enabled?` · يومياً الساعة ${hourLabel(p.sync_hour)}`:' · المزامنة اليومية موقفة'}</span></div>
+        <div class="pacts">${canDelete?`<button class="btn sm primary" type="button" data-act="pnSync" data-sid="${esc(s.id)}" ${syncing?'disabled':''}>${syncing?'جاري المزامنة…':'مزامنة الحين'}</button><button class="btn sm ghost" type="button" data-act="pnOpen" data-sid="${esc(s.id)}">الإعدادات</button>`:''}</div></div>
+      ${p.last_status==='error'?`<div class="status-line err">⚠️ ${esc(p.last_error)}</div>`:''}
+      ${syncing?'<div class="status-line info">المزامنة تبدأ خلال دقيقة، وتاخذ ثواني لين دقيقة حسب عدد الخطوط. خلك على الصفحة.</div>':''}
+      <div class="pstats"><div><b>${p.credits==null?'—':fmtMoney(p.credits)}</b><span>رصيد الكريدت</span></div><div><b>${lines.length}</b><span>خط في البانل</span></div><div><b>${lk}</b><span>مربوط بزبون</span></div><div><b>${unl}</b><span>فعّال وغير مربوط</span></div></div>
+      ${res.dates_updated||res.phones_added||res.passwords_updated?`<span class="hint">آخر مزامنة: ${res.dates_updated||0} تاريخ انتهاء تحدّث · ${res.phones_added||0} جوال انضاف · ${res.passwords_updated||0} باسورد تحدّث</span>`:''}
+    </div>`;}).join('');
+  v.innerHTML=`${cards}<div id="plBox"></div>`;
+  renderPanelLines();pollPanel();
+}
+function renderPanelLines(){
+  const box=$('#plBox');if(!box)return;
+  const unlinked=panelLines.filter(l=>!l.customer_id);
+  if(!panels.length){box.innerHTML='';return}
+  if(!unlinked.length){box.innerHTML=panelLines.length?'<div class="empty"><strong>كل خطوطك مربوطة بزبائن ✓</strong></div>':'';return}
+  const f={active:lineActive,expired:l=>!lineActive(l),all:()=>true}[plFilter]||lineActive;
+  const q=toLatin(plQuery.trim()).toLowerCase();
+  const list=unlinked.filter(f).filter(l=>!q||l.username.toLowerCase().includes(q)||l.fullname.toLowerCase().includes(q)||(l.phone_found||'').includes(q.replace(/\D/g,'')||'§'))
+    .sort((a,b)=>String(b.expires_at||'9').localeCompare(String(a.expires_at||'9')));
+  const sids=[...new Set(unlinked.filter(lineActive).map(l=>l.panel_id))];
+  const cnt=k=>unlinked.filter({active:lineActive,expired:l=>!lineActive(l),all:()=>true}[k]).length;
+  const custOpts=[...customers].sort((a,b)=>(a.lineUser?1:0)-(b.lineUser?1:0)||a.name.localeCompare(b.name,'ar')).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}${c.lineUser?` (عنده ${esc(c.lineUser)})`:''}</option>`).join('');
+  box.innerHTML=`<h2>خطوط ما هي مربوطة بزبون <span class="count">${unlinked.length}</span></h2>
+    <span class="hint">اربط كل خط بزبونه (باليوزر)، أو استورده كزبون جديد. بعدها تاريخه وجواله يتحدّثون لحالهم من البانل.</span>
+    <div class="tools"><label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="plq" type="search" placeholder="ابحث باليوزر أو الاسم أو الجوال" value="${esc(plQuery)}" autocomplete="off"></label>
+      <div class="chips"><button class="chip" type="button" data-act="plFilter" data-f="active" aria-pressed="${plFilter==='active'}">فعّالة ${cnt('active')}</button><button class="chip" type="button" data-act="plFilter" data-f="expired" aria-pressed="${plFilter==='expired'}">منتهية أو موقوفة ${cnt('expired')}</button><button class="chip" type="button" data-act="plFilter" data-f="all" aria-pressed="${plFilter==='all'}">الكل ${cnt('all')}</button></div>
+      ${canDelete?sids.map(sid=>`<div><button class="btn primary sm" type="button" data-act="plImportAll" data-sid="${esc(sid)}">⬇️ استورد كل الفعّالة${sids.length>1?' من '+esc(serverName(sid)):''} (${unlinked.filter(l=>l.panel_id===sid&&lineActive(l)).length})</button></div>`).join(''):''}</div>
+    ${list.length?`<div class="rows">${list.slice(0,plShow).map(l=>{const key=l.panel_id+':'+l.line_id;const e=lineEnd(l);const d=e?diffDays(today(),e):null;
+      return `<div class="pl-row"><div style="min-width:0"><div class="u"><span class="mono">${esc(l.username)}</span>${l.fullname?`<span>${esc(l.fullname)}</span>`:''}${l.is_trial?'<span class="tag">تجربة</span>':''}${l.banned?'<span class="tag">محظور</span>':!l.enabled?'<span class="tag">موقوف</span>':''}</div>
+        <div class="meta">${l.phone_found?`<span>📱 <span class="mono">+${esc(l.phone_found)}</span></span>`:''}${panels.length>1?`<span>${esc(serverName(l.panel_id))}</span>`:''}${e?'':'<span>يبدأ مع أول تشغيل</span>'}</div></div>
+        ${d===null?'<span></span>':pill(d)}
+        ${canWrite?`<div class="linkbox">${canDelete?`<button class="btn sm" type="button" data-act="plImport" data-sid="${esc(l.panel_id)}" data-line="${l.line_id}">⬇️ استورد كزبون جديد</button>`:''}<button class="btn sm ghost" type="button" data-act="plLinkOpen" data-key="${esc(key)}">🔗 ربط بزبون موجود</button>
+          ${plLinking===key?`<select id="plLinkSel" aria-label="اختر الزبون">${custOpts}</select><button class="btn sm primary" type="button" data-act="plLinkGo" data-sid="${esc(l.panel_id)}" data-user="${esc(l.username)}">ربط</button>`:''}</div>`:''}
+      </div>`;}).join('')}</div>${list.length>plShow?`<button class="btn ghost" type="button" onclick="this.disabled=true" data-act="plMore">عرض ${Math.min(60,list.length-plShow)} زيادة</button>`:''}`
+    :'<div class="empty"><span>ما فيه خطوط بهالفلتر.</span></div>'}`;
+  const more=box.querySelector('[data-act=plMore]');if(more)more.addEventListener('click',()=>{plShow+=60;renderPanelLines();});
+}
+async function panelSync(sid){
+  const {error}=await sb.rpc('request_panel_sync',{pid:sid});
+  if(error){toast('ما قدرنا نطلب المزامنة: '+errText(error,error.message));return}
+  await loadPanel();renderPanel();toast('بدأت المزامنة، خلال دقيقة تقريباً');
+}
+async function panelImport(sid,ids){
+  if(!ids.length)return;
+  try{const {data,error}=await sb.rpc('import_panel_lines',{pid:sid,line_ids:ids});if(error)throw error;
+    closeAll();setTab('panel');await store.load();toast(`انضاف ${data} زبون من البانل ✓`);}
+  catch(e){toast('ما قدرنا نستورد: '+errText(e,e.message||''))}
+}
+async function panelLinkTo(sid,username,cid){
+  const c=customers.find(x=>x.id===cid);if(!c)return;
+  try{await db.update(cid,{lineUser:username});const {error}=await sb.rpc('panel_relink',{pid:sid});if(error)throw error;
+    plLinking=null;await store.load();toast(`انربط ${username} بـ ${c.name} ✓ وتحدّث تاريخه من البانل`);}
+  catch(e){toast('ما قدرنا نربط: '+errText(e,e.message||''))}
+}
+function pnStatus(text,cls){const s=$('#pn_status');s.hidden=!text;s.textContent=text||'';s.className='status-line '+(cls||'info');}
+function openPanelCfg(sid){
+  if(!canDelete)return;pnSid=sid;const p=panels.find(x=>x.id===sid)||{};
+  $('#pn_server').innerHTML=getServers().map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');$('#pn_server').value=sid;$('#pn_server').disabled=true;
+  fillHours($('#pn_hour'),0,23);$('#pn_hour').value=p.sync_hour??9;$('#pn_on').checked=p.enabled??true;
+  $('#pn_url').value=p.base_url||'';$('#pn_key').value='';$('#pn_key').placeholder=p.has_key?'محفوظ ✓ (اكتب جديد لو تبي تغيره)':'الصق مفتاح الـ API هنا';
+  $('#pn_del').hidden=!p.id;$('#pn_err').hidden=true;pnStatus(p.id&&p.credits!=null?`مربوط ✓ · الرصيد ${fmtMoney(p.credits)} كريدت`:'',p.id?'ok':'info');
+  show('sheetPanel');
+}
+async function panelSave(){
+  const err=$('#pn_err');err.hidden=true;
+  const url=$('#pn_url').value.trim(),key=$('#pn_key').value.trim(),p=panels.find(x=>x.id===pnSid);
+  if(!/^https:\/\//i.test(url)){err.textContent='الرابط لازم يبدأ بـ https:// (مثل https://panel.example.com:8443)';err.hidden=false;return false}
+  if(!key&&!p?.has_key){err.textContent='الصق مفتاح الـ API';err.hidden=false;return false}
+  const cfg={id:pnSid,base_url:url,enabled:$('#pn_on').checked,sync_hour:Number($('#pn_hour').value)};if(key)cfg.api_key=key;
+  const {error}=await sb.rpc('set_panel',{cfg});
+  if(error){err.textContent='ما قدرنا نحفظ: '+errText(error,error.message);err.hidden=false;return false}
+  $('#pn_key').value='';await loadPanel();return true;
+}
+$('#pnForm').addEventListener('submit',async e=>{e.preventDefault();$('#pn_save').disabled=true;
+  try{if(await panelSave()){const t=await panelTestRun();if(t?.ok){await sb.rpc('request_panel_sync',{pid:pnSid});await loadPanel();pnStatus(`تم الحفظ ✓ الاتصال شغال، والرصيد ${fmtMoney(t.credits)} كريدت. بدأت أول مزامنة، تقدر تسكّر هالنافذة.`,'ok');renderAll();}}}
+  finally{$('#pn_save').disabled=false}});
+async function panelTestRun(){
+  pnStatus('جاري الاختبار…','info');
+  const {data,error}=await sb.rpc('test_panel',{pid:pnSid});
+  if(error){pnStatus('ما قدرنا نختبر: '+errText(error,error.message),'err');return null}
+  if(!data.ok){pnStatus(data.error,'err');return data}
+  pnStatus(`الاتصال شغال ✓ الحساب ${data.username||''} · الرصيد ${fmtMoney(data.credits)} كريدت${data.lines?.total!=null?` · ${data.lines.total} خط`:''}${data.sandbox?' · (مفتاح Sandbox)':''}`,'ok');return data;
+}
+async function panelTest(){$('#pn_test').disabled=true;try{const p=panels.find(x=>x.id===pnSid);const typed=$('#pn_key').value.trim()||$('#pn_url').value.trim()!==(p?.base_url||'');if(typed&&!(await panelSave()))return;await panelTestRun();}finally{$('#pn_test').disabled=false}}
+function panelDelete(){askConfirm(`بنحذف ربط بانل "${serverName(pnSid)}" والمفتاح ونسخة الخطوط. زبائنك ما يتأثرون.`,'نعم، احذف الربط',async()=>{
+  const {error}=await sb.rpc('delete_panel',{pid:pnSid});if(error){toast('ما قدرنا نحذف');return}await loadPanel();closeAll();setTab('panel');toast('انحذف الربط');});}
+
 /* ---------- boot ---------- */
 fillPkgSelect();renderAll();
 let lastDay=today();
@@ -1618,7 +1794,7 @@ const store={
       customers=rows.map(fromRow);
       const st=must(await sb.from('settings').select('data').eq('id',1).maybeSingle());
       if(st?.data)settings={...DEFAULTS,...st.data,prices:{...DEFAULTS.prices,...(st.data.prices||{})}};
-      loaded=true;window.__dbErr=null;await loadOutbox();renderAll();if(manual)toast('تم التحديث');syncResolved();
+      loaded=true;window.__dbErr=null;await Promise.all([loadOutbox(),loadPanel()]);renderAll();if(manual)toast('تم التحديث');syncResolved();
     }catch(ex){window.__dbErr=errText(ex,'ما قدرنا نجيب البيانات، جرّب "تحديث"');loaded=true;renderAll();}
     finally{loading=false}
   },
