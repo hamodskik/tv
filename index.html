@@ -575,7 +575,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.12 (تسجيل الدفعات)';
+const APP_VERSION='1.12.1 (كل الخطوط)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1731,7 +1731,7 @@ function ago(ts){if(!ts)return 'ما صارت';const m=Math.round((Date.now()-ne
 async function loadPanel(){
   try{
     const {data,error}=await sb.rpc('get_panels');if(error)throw error;panels=data||[];panelReady=true;
-    if(panels.length){const {data:ls,error:e2}=await sb.from('panel_lines').select('panel_id,line_id,username,fullname,expires_at,enabled,banned,is_trial,phone_found,customer_id,playlist_host,active_connections,max_connections,synced_at').limit(10000);if(e2)throw e2;panelLines=ls||[];}
+    if(panels.length){panelLines=await fetchAll(()=>sb.from('panel_lines').select('panel_id,line_id,username,fullname,expires_at,enabled,banned,is_trial,phone_found,customer_id,playlist_host,active_connections,max_connections,synced_at').order('panel_id',{ascending:true}).order('line_id',{ascending:true}));}
     else panelLines=[];
   }catch(e){panels=[];panelLines=[];panelReady=false}
 }
@@ -1889,13 +1889,15 @@ const needsSchema=ex=>/server_id/.test(String(ex?.message||''));
 const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
 function deepMerge(a,b){const o={...a};for(const k of Object.keys(b)){o[k]=isObj(b[k])&&isObj(a[k])?deepMerge(a[k],b[k]):b[k]}return o}
 const must=({data,error})=>{if(error)throw error;return data;};
+// Supabase يرجّع 1000 صف كحد أقصى في الطلب الواحد، فنسحب على دفعات لين نخلص
+async function fetchAll(build,page=1000){const out=[];for(let from=0;from<200000;from+=page){const {data,error}=await build().range(from,from+page-1);if(error)throw error;out.push(...(data||[]));if(!data||data.length<page)break;}return out;}
 const mustRows=res=>{const d=must(res);if(Array.isArray(d)&&!d.length)throw new Error('permission denied');return d;};
 let loading=false,channel=null;
 const store={
   async load(manual){
     if(loading)return;loading=true;if(manual)toast('جاري التحديث…');
     try{
-      const rows=must(await sb.from('customers').select('*').order('end_date',{ascending:true}).limit(5000));
+      const rows=await fetchAll(()=>sb.from('customers').select('*').order('end_date',{ascending:true}).order('id',{ascending:true}));
       customers=rows.map(fromRow);
       const st=must(await sb.from('settings').select('data').eq('id',1).maybeSingle());
       if(st?.data)settings={...DEFAULTS,...st.data,prices:{...DEFAULTS.prices,...(st.data.prices||{})}};
