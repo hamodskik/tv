@@ -123,6 +123,13 @@ begin
     when 'account_disabled'  then 'حساب الريسيلر معطّل'
     when 'rate_limited'      then 'طلبات كثيرة، بنحاول مرة ثانية بعد شوي'
     when 'circuit_open'      then 'البانل وقف الطلبات مؤقتاً بعد أخطاء كثيرة، بنحاول بعد شوي'
+    when 'insufficient_credits'  then 'الرصيد ما يكفي لهالباقة. اشحن كريدت أو اختر باقة أرخص'
+    when 'validation_failed'     then 'البانل رفض البيانات: ' || coalesce(left((r.content::jsonb)->'error'->>'details', 200), 'تأكد من الباقة')
+    when 'external_ref_conflict' then 'فيه طلب سابق بنفس الرقم وبباقة ثانية. سكّر النافذة وجرّب من جديد'
+    when 'idempotency_conflict'  then 'فيه طلب سابق بنفس الرقم وبيانات ثانية. سكّر النافذة وجرّب من جديد'
+    when 'operation_pending'     then 'الطلب لسا ينفّذ في البانل. اضغط نفس الزر مرة ثانية بعد ثواني (ما بينخصم مرتين)'
+    when 'not_found'             then 'البانل ما لقى الطلب أو الخط (يمكن انحذف)'
+    when 'sandbox_read_only'     then 'هذا مفتاح Sandbox: يجرب بس وما يغيّر شي'
     else case
       when code is null and r.status in (401, 403, 404, 405)
         then 'الرابط ما يوصل لـ API الريسيلر (رد ' || r.status || '). حط الدومين والبورت بس مثل https://example.com:8443 بدون أي مسار بعده، وتأكد إن الدومين نفس دومين المفتاح'
@@ -418,3 +425,146 @@ grant execute on function public.get_panels(), public.set_panel(jsonb), public.d
 
 -- ---------- الجدولة: كل دقيقة يشيّك لو فيه مزامنة مطلوبة أو حان وقت اليومية ----------
 select cron.schedule('tv-panel', '* * * * *', $$set statement_timeout to '300s'; select public.tv_panel_tick()$$);
+
+-- ============================================================
+-- تفعيل خط جديد وتجديده من اللوحة (يصرف كريدت، للمالك فقط)
+-- ============================================================
+create or replace function private.panel_post(p_base text, p_key text, p_path text, p_body jsonb, p_idem text) returns extensions.http_response
+language plpgsql volatile as $$
+declare r extensions.http_response; tries int := 0;
+begin
+  perform extensions.http_set_curlopt('CURLOPT_TIMEOUT', '6');
+  loop
+    r := extensions.http((
+      'POST', rtrim(p_base, '/') || '/api/reseller/v1' || p_path,
+      array[extensions.http_header('Authorization', 'Bearer ' || p_key),
+            extensions.http_header('Idempotency-Key', p_idem),
+            extensions.http_header('Accept', 'application/json')],
+      'application/json', p_body::text)::extensions.http_request);
+    exit when r.status <> 503 or tries >= 1;   -- operation_pending: نعيد بنفس المفتاح (ما يخصم مرتين)
+    tries := tries + 1;
+    perform pg_sleep(1);
+  end loop;
+  return r;
+end $$;
+
+-- اسم الخط في البانل: اسم الزبون + جواله (عشان المزامنة تلقط الجوال)
+create or replace function private.panel_fullname(c public.customers) returns text
+language sql stable as $$
+  select left(btrim(c.name || case when c.phone ~ '^9665[0-9]{8}$' then ' 0' || substr(c.phone, 4)
+                                    when c.phone <> '' then ' +' || c.phone else '' end), 64)
+$$;
+
+create or replace function private.panel_store_line(pid text, cid uuid, l jsonb) returns void
+language plpgsql volatile as $$
+begin
+  insert into public.panel_lines (panel_id, line_id, username, password, fullname, package_id, expires_at, enabled, banned,
+      is_trial, max_connections, active_connections, activates_on, playlist_host, phone_found, customer_id, synced_at)
+  values (pid, (l->>'id')::bigint, coalesce(l->>'username', ''), coalesce(l->>'password', ''), coalesce(l->>'fullname', ''),
+      nullif(l->>'package_id', '')::bigint, nullif(l->>'expires_at', '')::timestamptz, coalesce((l->>'enabled')::boolean, true),
+      coalesce((l->>'banned')::boolean, false), coalesce((l->>'is_trial')::boolean, false), nullif(l->>'max_connections', '')::int,
+      nullif(l->>'active_connections', '')::int, coalesce(l->>'activates_on', ''), coalesce(l->'playlist'->>'host', ''),
+      private.extract_phone(l->>'fullname'), cid, now())
+  on conflict (panel_id, line_id) do update set
+    username = excluded.username, password = excluded.password, fullname = excluded.fullname, package_id = excluded.package_id,
+    expires_at = excluded.expires_at, enabled = excluded.enabled, banned = excluded.banned, is_trial = excluded.is_trial,
+    max_connections = excluded.max_connections, playlist_host = excluded.playlist_host, customer_id = cid, synced_at = now();
+end $$;
+
+create or replace function public.panel_create_line(pid text, cid uuid, package_id bigint, idem text) returns jsonb
+language plpgsql security definer set search_path = public, private, extensions as $$
+declare
+  p private.panels; c public.customers; r extensions.http_response; js jsonb; l jsonb; pk jsonb;
+  dur int; endd date; host text; is_trial boolean;
+begin
+  if not public.is_owner() then raise exception 'permission denied'; end if;
+  if coalesce(length(idem), 0) not between 8 and 100 then raise exception 'bad idempotency key'; end if;
+  select * into p from private.panels where id = pid;
+  if p.id is null or p.api_key = '' or p.base_url = '' then return jsonb_build_object('ok', false, 'error', 'البانل مو مربوط'); end if;
+  select * into c from public.customers where id = cid;
+  if c.id is null then return jsonb_build_object('ok', false, 'error', 'الزبون مو موجود'); end if;
+  if c.panel_order_id <> '' then return jsonb_build_object('ok', false, 'error', 'هالزبون عنده خط انسوى من اللوحة أصلاً'); end if;
+  select x into pk from jsonb_array_elements(coalesce(p.packages, '[]'::jsonb)) x where (x->>'id')::bigint = package_id limit 1;
+  if pk is null then return jsonb_build_object('ok', false, 'error', 'الباقة مو موجودة. اضغط "مزامنة الحين" في تبويب البانل وجرّب'); end if;
+
+  begin
+    r := private.panel_post(p.base_url, p.api_key, '/orders/line',
+      jsonb_build_object('package_id', package_id, 'external_ref', 'tvd-' || left(idem, 50),
+                         'fullname', private.panel_fullname(c), 'note', 'لوحة عالم محمد تيفي'), idem);
+  exception when others then
+    return jsonb_build_object('ok', false, 'retry', true, 'error', 'ما وصل رد من البانل. اضغط نفس الزر مرة ثانية (ما بينخصم مرتين)');
+  end;
+  if r.status not in (200, 201) then
+    return jsonb_build_object('ok', false, 'retry', r.status in (429, 500, 502, 503, 504), 'error', private.panel_error(r));
+  end if;
+
+  js := r.content::jsonb; l := js->'line';
+  if l is null or coalesce(l->>'username', '') = '' then return jsonb_build_object('ok', false, 'error', 'البانل ما رجّع بيانات الخط'); end if;
+  dur := nullif(pk->>'duration_days', '')::int;
+  is_trial := coalesce((pk->>'is_trial')::boolean, false);
+  endd := coalesce((nullif(l->>'expires_at', '')::timestamptz at time zone 'Asia/Riyadh')::date, private.riyadh_now()::date + coalesce(dur, 0));
+  host := coalesce(l->'playlist'->>'host', '');
+
+  update public.customers set line_user = l->>'username', line_pass = coalesce(l->>'password', ''), end_date = endd,
+         panel_order_id = coalesce(js->>'id', ''), server_id = pid,
+         pkg = case when is_trial then 'trial' else private.pkg_from_days(dur) end
+   where id = cid;
+  perform private.panel_store_line(pid, cid, l);
+  update private.panels set credits = coalesce(nullif(js->>'remaining_credits', '')::numeric, credits) where id = pid;
+
+  -- رابط السيرفر من البانل لو ما كان محطوط في الإعدادات
+  if host <> '' then
+    update public.settings set data = jsonb_set(data, '{servers}', (
+        select jsonb_agg(case when x->>'id' = pid and coalesce(x->>'url', '') = '' then x || jsonb_build_object('url', host) else x end)
+          from jsonb_array_elements(data->'servers') x))
+     where id = 1 and jsonb_typeof(data->'servers') = 'array' and jsonb_array_length(data->'servers') > 0;
+  end if;
+
+  return jsonb_build_object('ok', true, 'username', l->>'username', 'password', l->>'password', 'host', host, 'end_date', endd,
+    'charged', js->'charged_credits', 'remaining', js->'remaining_credits',
+    'replayed', coalesce((js->>'replayed')::boolean, false), 'sandbox', coalesce((js->>'sandbox')::boolean, false));
+end $$;
+
+create or replace function public.panel_renew_line(pid text, cid uuid, package_id bigint, idem text) returns jsonb
+language plpgsql security definer set search_path = public, private, extensions as $$
+declare
+  p private.panels; c public.customers; r extensions.http_response; js jsonb; l jsonb; pk jsonb; endd date;
+begin
+  if not public.is_owner() then raise exception 'permission denied'; end if;
+  if coalesce(length(idem), 0) not between 8 and 100 then raise exception 'bad idempotency key'; end if;
+  select * into p from private.panels where id = pid;
+  if p.id is null or p.api_key = '' or p.base_url = '' then return jsonb_build_object('ok', false, 'error', 'البانل مو مربوط'); end if;
+  select * into c from public.customers where id = cid;
+  if c.id is null then return jsonb_build_object('ok', false, 'error', 'الزبون مو موجود'); end if;
+  if c.panel_order_id = '' then return jsonb_build_object('ok', false, 'error', 'هالخط ما انسوى من اللوحة، فتجديده يكون من البانل'); end if;
+  select x into pk from jsonb_array_elements(coalesce(p.packages, '[]'::jsonb)) x where (x->>'id')::bigint = package_id limit 1;
+  if pk is null then return jsonb_build_object('ok', false, 'error', 'الباقة مو موجودة. اضغط "مزامنة الحين" وجرّب'); end if;
+  if coalesce((pk->>'is_trial')::boolean, false) then return jsonb_build_object('ok', false, 'error', 'باقات التجربة ما تتجدد'); end if;
+
+  begin
+    r := private.panel_post(p.base_url, p.api_key, '/orders/' || c.panel_order_id || '/renew',
+      jsonb_build_object('package_id', package_id, 'external_ref', 'tvr-' || left(idem, 50)), idem);
+  exception when others then
+    return jsonb_build_object('ok', false, 'retry', true, 'error', 'ما وصل رد من البانل. اضغط نفس الزر مرة ثانية (ما بينخصم مرتين)');
+  end;
+  if r.status not in (200, 201) then
+    return jsonb_build_object('ok', false, 'retry', r.status in (429, 500, 502, 503, 504), 'error', private.panel_error(r));
+  end if;
+
+  js := r.content::jsonb; l := js->'line';
+  endd := (nullif(l->>'expires_at', '')::timestamptz at time zone 'Asia/Riyadh')::date;
+  update public.customers set end_date = coalesce(endd, end_date), panel_order_id = coalesce(nullif(js->>'id', ''), panel_order_id),
+         line_pass = coalesce(nullif(l->>'password', ''), line_pass),
+         pkg = private.pkg_from_days(nullif(pk->>'duration_days', '')::int)
+   where id = cid;
+  if l is not null then perform private.panel_store_line(pid, cid, l); end if;
+  update private.panels set credits = coalesce(nullif(js->>'remaining_credits', '')::numeric, credits) where id = pid;
+
+  return jsonb_build_object('ok', true, 'old_end', c.end_date, 'end_date', coalesce(endd, c.end_date),
+    'charged', js->'charged_credits', 'remaining', js->'remaining_credits',
+    'replayed', coalesce((js->>'replayed')::boolean, false), 'sandbox', coalesce((js->>'sandbox')::boolean, false));
+end $$;
+
+revoke all on function public.panel_create_line(text, uuid, bigint, text), public.panel_renew_line(text, uuid, bigint, text) from public, anon;
+grant execute on function public.panel_create_line(text, uuid, bigint, text), public.panel_renew_line(text, uuid, bigint, text) to authenticated;
+

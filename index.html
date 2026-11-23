@@ -370,6 +370,13 @@ a.btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none}
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
       <div class="sheet-head"><h3 id="formTitle">زبون جديد</h3><button class="x" type="button" data-act="close" aria-label="إغلاق">×</button></div>
       <form class="form" id="custForm" novalidate>
+        <div class="paste" id="newLineBox" hidden style="background:var(--ok-soft)">
+          <label class="switch" for="f_newline" style="background:transparent;padding:0"><span><b>🆕 سوّ خط جديد في البانل الحين</b><br><span class="hint">ينسوى الخط ويتعبى اليوزر والباس والتاريخ لحالهم</span></span><input type="checkbox" id="f_newline"></label>
+          <div id="newLineOpts" hidden class="form">
+            <div class="field"><label for="f_ppkg">باقة البانل</label><select id="f_ppkg"></select></div>
+            <span class="hint" id="h_ppkg"></span>
+          </div>
+        </div>
         <div class="paste" id="pasteBox">
           <p><strong>اختصار:</strong> الصق رسالة الزبون أو بيانات الخط من البانل هنا، وبنطلع منها الجوال والـ MAC والـ Device Key واليوزر والباس تلقائياً.</p>
           <textarea id="f_paste" placeholder="مثال: Mac: 00:1A:79:AB:CD:EF  Key: 123456  جوالي 0551234567"></textarea>
@@ -585,7 +592,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.13.1 (صانع الحملات)';
+const APP_VERSION='1.14 (تفعيل وتجديد خطوط جديدة من اللوحة)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1031,6 +1038,7 @@ function renderDetail(force){
   const c=customers.find(x=>x.id===openId);
   if(!c){closeAll();return}
   if(!force&&payEdit!==null&&$('#pe_amt'))return;
+  if(!force&&plaState[openId]?.open&&$('#pla_pkg'))return;
   const sig=JSON.stringify(c)+JSON.stringify(settings)+renewPkg+detailTpl+detailTone+detailVar+payEdit;
   if(!force&&sig===lastDetailSig)return;
   const tone=detailTone||defaultTone();const msgKey=detailTpl+'|'+tone+'|'+detailVar;
@@ -1058,7 +1066,7 @@ function renderDetail(force){
       ${fact('تاريخ الانتهاء',nice(c.endDate))}
       ${fact('عدد التجديدات',String(pays.filter(p=>p.kind==='renew'||p.kind==='panel').length))}
       ${fact('إجمالي اللي دفعه',`${Math.round(total).toLocaleString('en-US')} ${settings.currency||''}`)}
-      ${fact('مين أحاله',c.referredBy||'—')}
+      ${fact('مين أحاله',c.referredBy||'—','','',1)}
     </div>
     ${panelFact(c)}
     ${c.notes?`<div class="notes">${esc(c.notes)}</div>`:''}
@@ -1077,7 +1085,7 @@ function renderDetail(force){
         ${sentAt?`<span class="sent-note">✓ أُرسلت ${sentAt==='تم'?'':esc(nice(sentAt))}</span>`:''}
       </div>
     </div>
-    ${canWrite?`<div class="sec">
+    ${canWrite&&!(c.panelOrderId&&panelFor(serverOf(c.serverId).id))?`<div class="sec">
       <h4>تجديد الاشتراك</h4>
       <div class="renew">${PKGS.filter(p=>p.id!=='trial').map(p=>`<button class="chip" type="button" data-act="renewPick" data-pkg="${p.id}" aria-pressed="${renewPkg===p.id}">+ ${p.label}</button>`).join('')}</div>
       ${renewPkg?`<div class="renew-box">
@@ -1086,10 +1094,61 @@ function renderDetail(force){
         <button class="btn primary" type="button" data-act="renewGo" id="btnRenew">تأكيد التجديد</button><button class="btn ghost" type="button" data-act="renewCancel">إلغاء</button></div>
       </div>`:''}
     </div>`:''}
+    ${panelActions(c)}
     ${paymentsSection(c)}
     ${canWrite?`<div class="foot-acts"><button class="btn" type="button" data-act="edit" data-id="${esc(c.id)}">تعديل البيانات</button>${canDelete?`<button class="btn danger" type="button" data-act="del" data-id="${esc(c.id)}">حذف الزبون</button>`:''}</div>`:''}
   `;
   detailTplFor=msgKey;
+}
+
+/* ---------- panel lines: create & renew from the dashboard (spends credits, owner only) ---------- */
+const pkgFromDays=d=>d==null?'12m':d<=2?'trial':d<=45?'1m':d<=120?'3m':d<=240?'6m':'12m';
+const panelFor=sid=>panels.find(p=>p.id===sid&&p.has_key&&Array.isArray(p.packages)&&p.packages.length);
+function panelPkgs(p,{trial=true}={}){return (p?.packages||[]).filter(x=>trial||!(x.is_trial===true||x.is_trial==='true'))
+  .sort((a,b)=>(Number(a.is_trial===true)-Number(b.is_trial===true))||(Number(a.duration_days)-Number(b.duration_days))||String(a.name).localeCompare(String(b.name)));}
+const pkgOpt=x=>`${x.name} · ${Number(x.credits)||0} كريدت`;
+const LAST_PKG_KEY='tvdash.lastPanelPkg';
+function lastPkg(){try{return localStorage.getItem(LAST_PKG_KEY)||''}catch(e){return ''}}
+function rememberPkg(id){try{localStorage.setItem(LAST_PKG_KEY,String(id))}catch(e){}}
+function creditLine(p,pk){if(!pk)return '';const c=Number(pk.credits)||0,bal=p.credits==null?null:Number(p.credits);
+  return bal==null?`بيخصم ${c} كريدت`:c>bal?`⚠️ الرصيد ما يكفي: الباقة ${c} كريدت ورصيدك ${bal}`:`بيخصم ${c} كريدت · رصيدك ${fmtMoney(bal)} ← ${fmtMoney(bal-c)}`;}
+const plaState={};            // per customer: {open:'create'|'renew', pkg, amt, busy, err, retry}
+const plaIdem={};             // per customer+action+package: the same key is reused on retry, so nothing is charged twice
+const idemFor=k=>plaIdem[k]||(plaIdem[k]=(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+function panelActions(c){
+  if(!canDelete||!panelReady)return '';
+  const p=panelFor(serverOf(c.serverId).id);if(!p)return '';
+  const st=plaState[c.id]||{};
+  const mode=c.panelOrderId?'renew':!c.lineUser?'create':null;
+  if(!mode)return `<div class="notes">ℹ️ خط هالزبون انسوى من موقع البانل مباشرة، فتجديده يكون من البانل، وتاريخه يتحدّث هنا لحاله مع المزامنة.</div>`;
+  const title=mode==='renew'?'🔁 التجديد من البانل':'🆕 خط في البانل';
+  if(st.open!==mode)return `<div class="sec"><h4>${title}</h4><span class="hint">${mode==='renew'?'هالخط انسوى من اللوحة، فتقدر تجدده من هنا ويتمدد في البانل على طول.':'هالزبون ما له خط. تقدر تسوي له خط جديد في البانل من هنا.'}</span>
+    <div><button class="btn primary" type="button" data-act="plaOpen" data-mode="${mode}">${mode==='renew'?'🔁 جدد في البانل':'🆕 سوّ خط في البانل'}</button></div></div>`;
+  const list=panelPkgs(p,{trial:mode==='create'});const pk=list.find(x=>String(x.id)===String(st.pkg));
+  return `<div class="sec"><h4>${title}</h4><div class="renew-box">
+    <div class="field"><label for="pla_pkg">باقة البانل</label><select id="pla_pkg"><option value="">اختر الباقة…</option>${list.map(x=>`<option value="${esc(String(x.id))}" ${String(x.id)===String(st.pkg)?'selected':''}>${esc(pkgOpt(x))}</option>`).join('')}</select></div>
+    ${mode==='renew'?`<div class="field"><label for="pla_amt">المبلغ اللي دفعه الزبون (${esc(settings.currency||'')})</label><input id="pla_amt" class="ltr num" inputmode="decimal" value="${esc(st.amt??'')}" placeholder="ينسجل في سجل الدفعات"></div>`:''}
+    ${pk?`<span class="hint">${esc(creditLine(p,pk))}${mode==='renew'?` · ينتهي حالياً ${esc(nice(c.endDate))}`:''}</span>`:''}
+    ${st.err?`<div class="status-line err">${esc(st.err)}</div>`:''}
+    <div class="line"><button class="btn primary" type="button" data-act="plaGo" data-mode="${mode}" ${!pk||st.busy?'disabled':''}>${st.busy?'جاري التنفيذ في البانل…':st.err&&st.retry?'جرّب مرة ثانية (ما بينخصم مرتين)':pk?`${mode==='renew'?'جدد':'سوّ الخط'} (−${Number(pk.credits)||0} كريدت)`:'اختر الباقة'}</button>
+      <button class="btn ghost" type="button" data-act="plaCancel" ${st.busy?'disabled':''}>إلغاء</button></div>
+  </div></div>`;
+}
+async function plaRun(cid,mode){
+  const c=customers.find(x=>x.id===cid);if(!c)return;const p=panelFor(serverOf(c.serverId).id);const st=plaState[cid]||(plaState[cid]={});
+  const pk=panelPkgs(p).find(x=>String(x.id)===String(st.pkg));if(!pk)return;
+  const amt=mode==='renew'?Number(toLatin(String(st.amt||'')).replace(/[^\d.]/g,''))||0:0;
+  const key=`${cid}|${mode}|${pk.id}`;st.busy=true;st.err='';renderDetail(true);
+  try{
+    const {data,error}=await sb.rpc(mode==='renew'?'panel_renew_line':'panel_create_line',{pid:p.id,cid,package_id:Number(pk.id),idem:idemFor(key)});
+    if(error)throw error;
+    if(!data?.ok){st.busy=false;st.err=data?.error||'ما قدرنا';st.retry=!!data?.retry;if(!data?.retry)delete plaIdem[key];renderDetail(true);return}
+    delete plaIdem[key];rememberPkg(pk.id);delete plaState[cid];
+    await store.load();
+    if(mode==='renew'&&amt>0){const fresh=customers.find(x=>x.id===cid);if(fresh)try{await db.update(cid,{payments:[...(fresh.payments||[]),{date:today(),amount:amt,pkg:pkgFromDays(Number(pk.duration_days)),kind:'renew'}]})}catch(e){}}
+    openDetail(cid,mode==='renew'?'renewed':'activate');
+    toast(`${mode==='renew'?`تجدد في البانل لين ${nice(data.end_date)}`:`انسوى الخط ✓ ${data.username}`} · خصم ${data.charged??0} كريدت · الباقي ${data.remaining??'—'}${data.replayed?' (نفس الطلب، ما انخصم مرة ثانية)':''}${data.sandbox?' · Sandbox':''}`);
+  }catch(e){st.busy=false;st.err='ما وصل رد: '+errText(e,e.message||'')+'. اضغط مرة ثانية (ما بينخصم مرتين)';st.retry=true;renderDetail(true)}
 }
 
 /* ---------- payments (record / edit amounts) ---------- */
@@ -1142,7 +1201,7 @@ function payDel(i){
 /* ---------- sheets ---------- */
 function show(id){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=s.id!==id);}
 function closeAll(){document.querySelectorAll('[data-scrim]').forEach(s=>s.hidden=true);openId=null;renewPkg=null;detailTpl=null;lastDetailSig='';}
-function openDetail(id,tplId){payEdit=null;openId=id;detailTpl=tplId||null;detailTone=null;detailVar=0;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
+function openDetail(id,tplId){payEdit=null;if(plaState[id]&&!plaState[id].busy)delete plaState[id];openId=id;detailTpl=tplId||null;detailTone=null;detailVar=0;renewPkg=null;show('sheetDetail');renderDetail(true);$('#detailBody').scrollTop=0;}
 
 let toastT=null;
 function toast(text,undo){
@@ -1205,6 +1264,7 @@ function openForm(c){
   $('#formErr').hidden=true;$('#h_mac').textContent='';$('#h_mac').className='hint';
   $('#h_phone').textContent='يتحول تلقائياً للصيغة الدولية';$('#h_phone').className='hint';
   if(!c)updateEnd();
+  setupNewLine(!c);
   show('sheetForm');setTimeout(()=>(c?$('#f_name'):$('#f_name')).focus(),60);
 }
 function checkMac(){
@@ -1237,6 +1297,10 @@ async function saveForm(e){
   if(end<start)return fail('تاريخ الانتهاء قبل تاريخ التفعيل');
   const base={name,phone,mac:fmtMac($('#f_mac').value),deviceKey:toLatin($('#f_key').value).trim(),pkg:$('#f_pkg').value,serverId:$('#f_server').value,screen:$('#f_screen').value,app:$('#f_app').value,lineUser:$('#f_luser').value.trim(),linePass:$('#f_lpass').value.trim(),
     startDate:start,endDate:end,notes:$('#f_notes').value.trim(),referredBy:$('#f_ref').value.trim()};
+  const wantLine=!editingId&&!$('#newLineBox').hidden&&$('#f_newline').checked;
+  const linePk=wantLine?panelPkgs(panelFor(base.serverId)).find(x=>String(x.id)===$('#f_ppkg').value):null;
+  if(wantLine&&!linePk)return fail('اختر باقة البانل، أو شيل علامة "سوّ خط جديد"');
+  if(wantLine){const p=panelFor(base.serverId);if(p.credits!=null&&Number(linePk.credits)>Number(p.credits))return fail(`الرصيد ما يكفي: الباقة ${linePk.credits} كريدت ورصيدك ${p.credits}`);base.lineUser='';base.linePass='';}
   const btn=$('#btnSave');btn.disabled=true;
   try{
     if(editingId){
@@ -1246,7 +1310,9 @@ async function saveForm(e){
       const amount=Number(toLatin($('#f_amount').value).replace(/[^\d.]/g,''))||0;
       const doc={...base,payments:[{date:start,amount,pkg:base.pkg,kind:'new'}],sent:{},qualityDone:false,createdAt:Date.now()};
       const newId=await db.add(doc);
-      closeAll();openDetail(newId,'activate');toast('تم حفظ الزبون. أرسل له رسالة التفعيل');
+      closeAll();
+      if(wantLine){plaState[newId]={open:'create',pkg:String(linePk.id)};openDetail(newId,'activate');plaState[newId]={open:'create',pkg:String(linePk.id)};await plaRun(newId,'create');}
+      else{openDetail(newId,'activate');toast('تم حفظ الزبون. أرسل له رسالة التفعيل');}
     }
   }catch(ex){fail(errText(ex,'ما قدرنا نحفظ، تأكد من الاتصال وجرّب مرة ثانية'));}
   finally{btn.disabled=false}
@@ -1321,6 +1387,11 @@ document.addEventListener('click',e=>{
     case 'renewPick':{renewPkg=t.dataset.pkg;{const cc=customers.find(x=>x.id===openId);renewAmt=String(amountFor(renewPkg,cc?.screen,cc?.serverId)||'');};renderDetail(true);break}
     case 'renewCancel':renewPkg=null;renderDetail(true);break;
     case 'renewGo':doRenew();break;
+    case 'plaOpen':{const c=customers.find(x=>x.id===openId);const p=c&&panelFor(serverOf(c.serverId).id);const lp=lastPkg();
+      const list=panelPkgs(p,{trial:t.dataset.mode==='create'});const pre=list.find(x=>String(x.id)===lp)?lp:'';
+      plaState[openId]={open:t.dataset.mode,pkg:pre,amt:t.dataset.mode==='renew'&&pre?String(amountFor(pkgFromDays(Number(list.find(x=>String(x.id)===pre).duration_days)),c.screen,c.serverId)||''):''};renderDetail(true);break}
+    case 'plaCancel':delete plaState[openId];renderDetail(true);break;
+    case 'plaGo':plaRun(openId,t.dataset.mode);break;
     case 'payNew':payEdit='new';renderDetail(true);setTimeout(()=>$('#pe_amt')?.focus(),30);break;
     case 'payEdit':payEdit=Number(t.dataset.i);renderDetail(true);setTimeout(()=>{$('#pe_amt')?.focus();$('#pe_amt')?.scrollIntoView({block:'center'});},30);break;
     case 'payCancel':payEdit=null;renderDetail(true);break;
@@ -1370,9 +1441,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 document.addEventListener('change',e=>{
   if(e.target.id==='cp_skip'){cp.skip=e.target.checked;campSave();renderCamp();return}
   if(e.target.id==='cp_wait'){cp.waitOn=e.target.checked;campSave();renderCamp();return}
+  if(e.target.id==='pla_pkg'&&plaState[openId]){const st=plaState[openId];st.pkg=e.target.value;st.err='';const c=customers.find(x=>x.id===openId);const pk=panelPkgs(panelFor(serverOf(c.serverId).id)).find(x=>String(x.id)===st.pkg);
+    if(st.open==='renew'&&pk&&!st.amtTouched)st.amt=String(amountFor(pkgFromDays(Number(pk.duration_days)),c.screen,c.serverId)||'');renderDetail(true);}
 });
 document.addEventListener('input',e=>{
   if(['cp_offer','cp_deadline','cp_noname','cp_text','cp_paste'].includes(e.target.id)){campInput(e.target);return}
+  if(e.target.id==='pla_amt'&&plaState[openId]){plaState[openId].amt=e.target.value;plaState[openId].amtTouched=true;return}
   if(e.target.id==='plq'){plQuery=e.target.value;plShow=60;renderPanelResults();return}
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
   if(e.target.id==='r_amt')renewAmt=e.target.value;
@@ -1384,9 +1458,28 @@ function setTab(t){tab=t;for(const [k,[tb,vw]] of Object.entries(TABVIEWS)){$(tb
 
 $('#custForm').addEventListener('submit',saveForm);
 const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value,$('#f_server').value)||'';amountHint();};
-$('#f_server').addEventListener('change',refreshAmount);
+$('#f_server').addEventListener('change',()=>{refreshAmount();if(!editingId)setupNewLine(true);});
 $('#f_amount').addEventListener('input',amountHint);
 $('#f_pkg').addEventListener('change',()=>{endTouched=false;updateEnd();refreshAmount();});
+function setupNewLine(isNew){
+  const box=$('#newLineBox');const p=isNew&&canDelete&&panelReady?panelFor($('#f_server').value):null;
+  box.hidden=!p;if(!p){$('#f_newline').checked=false;}
+  if(p){const list=panelPkgs(p);const lp=lastPkg();
+    $('#f_ppkg').innerHTML='<option value="">اختر الباقة…</option>'+list.map(x=>`<option value="${esc(String(x.id))}">${esc(pkgOpt(x))}</option>`).join('');
+    if(list.some(x=>String(x.id)===lp))$('#f_ppkg').value=lp;}
+  applyNewLine();
+}
+function applyNewLine(){
+  const on=!$('#newLineBox').hidden&&$('#f_newline').checked;const p=panelFor($('#f_server').value);
+  $('#newLineOpts').hidden=!on;
+  for(const id of ['#f_luser','#f_lpass']){const el=$(id);el.disabled=on;el.placeholder=on?'ينعبى تلقائياً من البانل':(id==='#f_luser'?'username':'password');if(on)el.value='';}
+  const pk=on?panelPkgs(p).find(x=>String(x.id)===$('#f_ppkg').value):null;
+  $('#h_ppkg').textContent=pk?creditLine(p,pk):on?'اختر الباقة عشان تشوف كم بيخصم':'';
+  if(pk){const days=Number(pk.duration_days)||0;$('#f_pkg').value=pkgFromDays(days);$('#f_end').value=addDays($('#f_start').value||today(),days);endTouched=true;refreshAmount();}
+  if(!editingId)$('#btnSave').textContent=on?(pk?`حفظ وسوّ الخط (−${Number(pk.credits)||0} كريدت)`:'اختر باقة البانل'):'حفظ الزبون';
+}
+$('#f_newline').addEventListener('change',applyNewLine);
+$('#f_ppkg').addEventListener('change',applyNewLine);
 function syncAppFields(){const ibo=$('#f_app').value==='ibo';$('#iboFields').hidden=!ibo;if(!ibo){$('#h_mac').textContent='';}}
 $('#f_screen').addEventListener('change',()=>{const s=SCREENS.find(x=>x.id===$('#f_screen').value);if(s)$('#f_app').value=s.app;syncAppFields();updateEnd();refreshAmount();});
 $('#f_app').addEventListener('change',syncAppFields);
@@ -2304,10 +2397,10 @@ function errText(ex,fallback){
 }
 const COLMAP=[['id','id'],['name','name'],['phone','phone'],['mac','mac'],['deviceKey','device_key'],['screen','screen'],['pkg','pkg'],
   ['startDate','start_date'],['endDate','end_date'],['notes','notes'],['referredBy','referred_by'],['qualityDone','quality_done'],
-  ['sent','sent'],['payments','payments'],['example','example'],['app','app'],['lineUser','line_user'],['linePass','line_pass'],['serverId','server_id']];
-function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.serverId=c.serverId||'';c.app=c.app||'ibo';c.lineUser=c.lineUser||'';c.linePass=c.linePass||'';c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
+  ['sent','sent'],['payments','payments'],['example','example'],['app','app'],['lineUser','line_user'],['linePass','line_pass'],['serverId','server_id'],['panelOrderId','panel_order_id']];
+function fromRow(r){const c={};for(const [k,col] of COLMAP)c[k]=r[col];c.serverId=c.serverId||'';c.panelOrderId=c.panelOrderId||'';c.app=c.app||'ibo';c.lineUser=c.lineUser||'';c.linePass=c.linePass||'';c.sent=c.sent||{};c.payments=c.payments||[];c.createdAt=Date.parse(r.created_at)||0;return c;}
 function toRow(c){const r={};for(const [k,col] of COLMAP){if(c[k]!==undefined)r[col]=c[k];}
-  for(const k of ['phone','mac','device_key','notes','referred_by','screen','line_user','line_pass','server_id'])if(r[k]==null)r[k]='';if(!serverCol)delete r.server_id;if(!r.app)r.app='ibo';return r;}
+  for(const k of ['phone','mac','device_key','notes','referred_by','screen','line_user','line_pass','server_id'])if(r[k]==null)r[k]='';if(!serverCol)delete r.server_id;delete r.panel_order_id;/* managed by the server only */if(!r.app)r.app='ibo';return r;}
 let serverCol=true;
 const needsSchema=ex=>/server_id/.test(String(ex?.message||''));
 const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
