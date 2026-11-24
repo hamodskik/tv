@@ -291,6 +291,14 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
 .pl-row .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .pl-row .linkbox{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
 .pl-row .linkbox select{flex:1 1 180px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;min-width:0}
+.cp-next{background:var(--surface-2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px}
+.cp-next .who{font-weight:700;font-size:1.05rem}
+.cp-prog{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.cp-prog i{display:block;height:100%;background:var(--wa)}
+.cp-list{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.cp-list div{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-top:1px solid var(--line);font-size:.84rem}
+.cp-list div:first-child{border-top:0}
+a.btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none}
 .toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:12px;z-index:60;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);font-weight:600;font-size:.9rem;max-width:calc(100% - 32px)}
 .toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700}
 </style>
@@ -334,6 +342,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
     <button class="tab" role="tab" id="tabRep" data-act="tab" data-tab="rep" aria-selected="false">التقارير</button>
     <button class="tab" role="tab" id="tabRef" data-act="tab" data-tab="ref" aria-selected="false">الإحالات</button>
     <button class="tab" role="tab" id="tabPanel" data-act="tab" data-tab="panel" aria-selected="false">البانل <span class="count" id="cntPanel" hidden>0</span></button>
+    <button class="tab" role="tab" id="tabCamp" data-act="tab" data-tab="camp" aria-selected="false">📣 الحملات</button>
   </div>
 
   <section id="viewTasks" class="group" aria-live="polite"><div id="outboxBox"></div><div id="tasksBody"></div></section>
@@ -341,6 +350,7 @@ details.more summary{cursor:pointer;font-size:.84rem;color:var(--accent);font-we
   <section id="viewRep" class="group" hidden></section>
   <section id="viewRef" class="group" hidden></section>
   <section id="viewPanel" class="group" hidden></section>
+  <section id="viewCamp" class="group" hidden></section>
 
   <section id="viewList" class="group" hidden>
     <div class="tools">
@@ -575,7 +585,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.12.3 (أرقام الدعم في كل الرسائل)';
+const APP_VERSION='1.13.1 (صانع الحملات)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1331,6 +1341,14 @@ document.addEventListener('click',e=>{
     case 'calDay':calSel=t.dataset.d;renderCal();break;
     case 'reward':giveReward(t.dataset.id,Number(t.dataset.days),t.dataset.refs.split(','));break;
     case 'saveRewardDays':saveRewardDays();break;
+    case 'cpGoal':cp.goal=t.dataset.v;cp.skip=['winback','offer'].includes(cp.goal);campSave();renderCamp(true);break;
+    case 'cpStyle':cp.style=t.dataset.v;campSave();renderCamp(true);break;
+    case 'cpReset':delete cp.texts[cpKey()];campSave();renderCamp(true);toast('رجع النص الأصلي');break;
+    case 'cpSrc':campAddSource(t.dataset.v);break;
+    case 'cpSent':campMark('sent');break;
+    case 'cpSkip':campMark('skipped');break;
+    case 'cpRestart':askConfirm('بنمسح علامات "انرسلت" ونبدأ الإرسال من أول المستلمين. النص والمستلمين ما يتغيرون.','نعم، من البداية',()=>{cp.sent={};cp.wait=0;campSave();closeAll();setTab('camp');});break;
+    case 'cpClear':askConfirm('بنمسح قائمة المستلمين وعلامات الإرسال.','نعم، امسح',()=>{cp.paste='';cp.sent={};cp.wait=0;campSave();closeAll();setTab('camp');renderCamp(true);});break;
     case 'pnOpen':openPanelCfg(t.dataset.sid);break;
     case 'goPanel':{closeAll();setTab('panel');$('#tabPanel').scrollIntoView({inline:'center',block:'nearest'});const s=getServers();if(canDelete&&panelReady&&s.length===1&&!panels.some(p=>p.id===s[0].id))openPanelCfg(s[0].id);break}
     case 'pnClose':closeAll();setTab('panel');break;
@@ -1349,15 +1367,20 @@ document.addEventListener('click',e=>{
 });
 $('#cfYes').addEventListener('click',async()=>{if(pendingAction){const fn=pendingAction;pendingAction=null;$('#cfYes').disabled=true;try{await fn()}finally{$('#cfYes').disabled=false}}else doDelete();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
+document.addEventListener('change',e=>{
+  if(e.target.id==='cp_skip'){cp.skip=e.target.checked;campSave();renderCamp();return}
+  if(e.target.id==='cp_wait'){cp.waitOn=e.target.checked;campSave();renderCamp();return}
+});
 document.addEventListener('input',e=>{
+  if(['cp_offer','cp_deadline','cp_noname','cp_text','cp_paste'].includes(e.target.id)){campInput(e.target);return}
   if(e.target.id==='plq'){plQuery=e.target.value;plShow=60;renderPanelResults();return}
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
   if(e.target.id==='r_amt')renewAmt=e.target.value;
   if(e.target.id==='q'){query=e.target.value;renderList();}
 });
-const TABVIEWS={tasks:['#tabTasks','#viewTasks'],list:['#tabList','#viewList'],cal:['#tabCal','#viewCal'],rep:['#tabRep','#viewRep'],ref:['#tabRef','#viewRef'],panel:['#tabPanel','#viewPanel']};
+const TABVIEWS={tasks:['#tabTasks','#viewTasks'],list:['#tabList','#viewList'],cal:['#tabCal','#viewCal'],rep:['#tabRep','#viewRep'],ref:['#tabRef','#viewRef'],panel:['#tabPanel','#viewPanel'],camp:['#tabCamp','#viewCamp']};
 function setTab(t){tab=t;for(const [k,[tb,vw]] of Object.entries(TABVIEWS)){$(tb).setAttribute('aria-selected',k===t);$(vw).hidden=k!==t;}
-  if(t==='cal')renderCal();if(t==='rep')renderRep();if(t==='ref')renderRef();if(t==='panel')renderPanel();}
+  if(t==='cal')renderCal();if(t==='rep')renderRep();if(t==='ref')renderRef();if(t==='panel')renderPanel();if(t==='camp')renderCamp();}
 
 $('#custForm').addEventListener('submit',saveForm);
 const refreshAmount=()=>{if(!editingId)$('#f_amount').value=amountFor($('#f_pkg').value,$('#f_screen').value,$('#f_server').value)||'';amountHint();};
@@ -1916,6 +1939,350 @@ async function panelTestRun(){
 async function panelTest(){$('#pn_test').disabled=true;try{const p=panels.find(x=>x.id===pnSid);const typed=$('#pn_key').value.trim()||($('#pn_url').value.trim().match(/^https?:\/\/[^\/?#\s]+/i)||[''])[0]!==(p?.base_url||'');if(typed&&!(await panelSave()))return;await panelTestRun();}finally{$('#pn_test').disabled=false}}
 function panelDelete(){askConfirm(`بنحذف ربط بانل "${serverName(pnSid)}" والمفتاح ونسخة الخطوط. زبائنك ما يتأثرون.`,'نعم، احذف الربط',async()=>{
   const {error}=await sb.rpc('delete_panel',{pid:pnSid});if(error){toast('ما قدرنا نحذف');return}await loadPanel();closeAll();setTab('panel');toast('انحذف الربط');});}
+
+/* ---------- 📣 campaigns: messages for customers inside or outside the dashboard ---------- */
+const CAMP_GOALS=[{id:'winback',label:'يرجعون لنا'},{id:'renew',label:'يجددون'},{id:'offer',label:'عرض خاص'},{id:'event',label:'مباريات وموسم'},{id:'thanks',label:'شكر وتقدير'}];
+const CAMP_STYLES=[{id:'praise',label:'مدح 👑'},{id:'formal',label:'رسمي'},{id:'hype',label:'حماسي 🔥'},{id:'friendly',label:'ودّي'},{id:'short',label:'مختصر'}];
+const CS=`\n\n{أرقام_الدعم}`;
+const CAMP_TPLS={
+winback:{
+praise:[`يا هلا ومرحبا {الاسم} 👑
+زبائن مثلك ما ينتسون! وحشتنا، ومكانك محفوظ عندنا في {المتجر}.
+{العرض}
+{المهلة}
+رد علينا بكلمة *رجعت* ونرجّع لك كل شي خلال دقائق 🤍`+CS,
+`{الاسم} يا الغالي 🌟
+ذوقك في المشاهدة ما يتعوّض، والشاشة من دونك ناقصها شي 😄
+ارجع لـ {المتجر} وخلك على أعلى جودة.
+{العرض}
+{المهلة}
+رد بـ *أبي أرجع* ونخدمك على طول.`+CS],
+formal:[`مرحباً {الاسم}،
+نفتقد وجودك ضمن مشتركي {المتجر}، ويسعدنا عودتك إلينا.
+{العرض}
+{المهلة}
+للعودة يرجى الرد بكلمة *عودة*، وسيتم تفعيل اشتراكك خلال دقائق.`+CS,
+`السلام عليكم {الاسم}،
+تطورت خدماتنا في {المتجر}، ونرحب بعودتك في أي وقت.
+{العرض}
+{المهلة}
+يسعدنا خدمتك، يرجى الرد بكلمة *عودة*.`+CS],
+hype:[`🔥 *{الاسم}، رجعنا لك بقوة!* 🔥
+مباريات ⚽ أفلام 🎬 مسلسلات 📺 وكل شي بجودة خيالية!
+{العرض}
+{المهلة}
+لا تفوتك، رد بـ *رجعني* ⚡`+CS,
+`⚡ *جاهز ترجع للمتعة يا {الاسم}؟* ⚡
+القنوات شغالة 100% والسيرفر طاير 🚀
+{العرض}
+{المهلة}
+رد الحين بـ *رجعني* ونفعّلك بدقيقة 🔥`+CS],
+friendly:[`هلا {الاسم} 👋
+وحشتنا! من زمان ما شفناك معنا في {المتجر}.
+{العرض}
+{المهلة}
+لو حاب ترجع، رد بـ *رجعت* ونرتب لك كل شي 🤍`+CS,
+`أهلين {الاسم} 🌙
+عساك بخير. حبينا نسلم عليك ونقولك إن مكانك محفوظ عندنا.
+{العرض}
+{المهلة}
+رد بـ *رجعت* متى ما حبيت 🙌`+CS],
+short:[`وحشتنا يا {الاسم} 👋 رد بـ *رجعت* ونفعّلك بدقيقة.
+{العرض}
+{المهلة}`+CS,
+`{الاسم}، مكانك محفوظ في {المتجر} 🤍 رد *رجعت*.
+{العرض}
+{المهلة}`+CS]},
+renew:{
+praise:[`يا هلا بأوفى زبون {الاسم} 👑
+ثقتك فينا نعتز فيها، وعشانك جهزنا لك التجديد بأفضل شكل.
+{العرض}
+{المهلة}
+رد بـ *تجديد* ونمدد لك بدون ما تنقطع ثانية 🤍
+💳 {رابط_الدفع}`+CS,
+`{الاسم} يا الذيب 🌟
+أمثالك هم سر نجاحنا في {المتجر}، وحابين نكمل معك المشوار.
+{العرض}
+{المهلة}
+رد بـ *تجديد* ونخلصك بدقيقة.
+💳 {رابط_الدفع}`+CS],
+formal:[`مرحباً {الاسم}،
+يسرنا تذكيرك بإمكانية تجديد اشتراكك في {المتجر} واستمرار الخدمة دون انقطاع.
+{العرض}
+{المهلة}
+للتجديد يرجى الرد بكلمة *تجديد*.
+💳 {رابط_الدفع}`+CS,
+`السلام عليكم {الاسم}،
+نشكرك على ثقتك بـ {المتجر}. يمكنك تجديد اشتراكك الآن عن بُعد دون الحاجة لإرسال أي بيانات.
+{العرض}
+{المهلة}
+للتجديد يرجى الرد بكلمة *تجديد*.
+💳 {رابط_الدفع}`+CS],
+hype:[`⏰ *{الاسم}، جدد وخلك في قلب الحدث!* ⚽🔥
+{العرض}
+{المهلة}
+رد بـ *تجديد* ونمددك فوراً ⚡
+💳 {رابط_الدفع}`+CS,
+`🚀 *لا توقف المتعة يا {الاسم}!*
+جدد الحين وخل القنوات طايرة عندك 📺🔥
+{العرض}
+{المهلة}
+رد بـ *تجديد* ⚡
+💳 {رابط_الدفع}`+CS],
+friendly:[`هلا {الاسم} 👋
+حابين نكمل معك في {المتجر}، والتجديد ما ياخذ دقيقة ومن غير ما ترسل شي.
+{العرض}
+{المهلة}
+رد بـ *تجديد* ونرتب لك كل شي 🙌
+💳 {رابط_الدفع}`+CS,
+`أهلين {الاسم} 🌙
+تبغى نجدد لك؟ على نفس جهازك وبدون أي تعب.
+{العرض}
+{المهلة}
+رد بـ *تجديد* 🤍
+💳 {رابط_الدفع}`+CS],
+short:[`{الاسم}، جدد اشتراكك بدقيقة 🔁 رد *تجديد*.
+{العرض}
+{المهلة}
+{رابط_الدفع}`+CS,
+`تجديدك جاهز يا {الاسم} ✅ رد *تجديد*.
+{العرض}
+{المهلة}
+{رابط_الدفع}`+CS]},
+offer:{
+praise:[`{الاسم}، عشانك من أغلى زبائننا 👑
+جهزنا لك عرض ما نعطيه لأي أحد:
+{العرض}
+{المهلة}
+رد بـ *أبي العرض* ونحجزه لك 🤍`+CS,
+`يا هلا {الاسم} 🌟
+الزبون الذواق يستاهل الأفضل، وهذا عرضك الخاص:
+{العرض}
+{المهلة}
+رد بـ *أبي العرض*.`+CS],
+formal:[`مرحباً {الاسم}،
+يسر {المتجر} أن يقدم لك عرضاً خاصاً:
+{العرض}
+{المهلة}
+للاستفادة من العرض يرجى الرد بكلمة *العرض*.`+CS,
+`السلام عليكم {الاسم}،
+لدينا عرض خاص لعملائنا المميزين:
+{العرض}
+{المهلة}
+يسعدنا خدمتك، يرجى الرد بكلمة *العرض*.`+CS],
+hype:[`🎁 *عرض خاص لك يا {الاسم}!* 🎁
+{العرض}
+{المهلة}
+العرض لفترة محدودة، رد بـ *أبي العرض* ⚡`+CS,
+`🔥🔥 *فرصة ما تتكرر يا {الاسم}!* 🔥🔥
+{العرض}
+{المهلة}
+الحق عليه، رد بـ *أبي العرض* 🚀`+CS],
+friendly:[`هلا {الاسم} 👋
+عندنا عرض حلو وقلنا لازم تعرف عنه:
+{العرض}
+{المهلة}
+لو يناسبك، رد بـ *أبي العرض* 🤍`+CS,
+`أهلين {الاسم} 🌙
+جهزنا عرض بسيط لربعنا:
+{العرض}
+{المهلة}
+رد بـ *أبي العرض* ونرتبه لك.`+CS],
+short:[`عرض خاص يا {الاسم} 🎁 رد *أبي العرض*.
+{العرض}
+{المهلة}`+CS,
+`{الاسم}، عندنا لك عرض 🎁 رد *العرض*.
+{العرض}
+{المهلة}`+CS]},
+event:{
+praise:[`{الاسم} يا عاشق الكورة 👑⚽
+الموسم بدأ ومكانك في الصف الأول محجوز عندنا.
+{العرض}
+{المهلة}
+رد بـ *جاهز* ونفعّلك قبل صافرة البداية 🤍`+CS,
+`يا هلا {الاسم} 🌟
+المباريات الكبيرة جاية، وأمثالك ما يتفرجون إلا بأعلى جودة.
+{العرض}
+{المهلة}
+رد بـ *جاهز*.`+CS],
+formal:[`مرحباً {الاسم}،
+مع انطلاق الموسم، يسر {المتجر} دعوتك لمتابعة جميع المباريات بجودة عالية ودون انقطاع.
+{العرض}
+{المهلة}
+للاشتراك يرجى الرد بكلمة *اشتراك*.`+CS,
+`السلام عليكم {الاسم}،
+استعد لأقوى المباريات هذا الموسم مع {المتجر}.
+{العرض}
+{المهلة}
+يرجى الرد بكلمة *اشتراك*.`+CS],
+hype:[`⚽🔥 *الدوري رجع يا {الاسم}!* 🔥⚽
+كل المباريات، كل البطولات، بجودة خيالية 📺
+{العرض}
+{المهلة}
+لا تفوت ولا مباراة، رد بـ *جاهز* ⚡`+CS,
+`🏆 *جاهز للكلاسيكو يا {الاسم}؟* 🏆
+القنوات الرياضية كلها شغالة وطايرة 🚀
+{العرض}
+{المهلة}
+رد الحين بـ *جاهز* 🔥`+CS],
+friendly:[`هلا {الاسم} 👋
+الموسم بدأ، وحابين تكون معنا وتتابع كل المباريات براحتك.
+{العرض}
+{المهلة}
+رد بـ *جاهز* ونرتب لك ⚽`+CS,
+`أهلين {الاسم} 🌙
+المباريات الحلوة جاية، تبغى تتابعها معنا؟
+{العرض}
+{المهلة}
+رد بـ *جاهز* 🙌`+CS],
+short:[`⚽ الموسم بدأ يا {الاسم}! رد *جاهز* ونفعّلك.
+{العرض}
+{المهلة}`+CS,
+`{الاسم}، لا تفوتك المباريات ⚽ رد *جاهز*.
+{العرض}
+{المهلة}`+CS]},
+thanks:{
+praise:[`{الاسم} 👑
+والله إنك من الزبائن اللي نفتخر فيهم، وثقتك فينا تسوى الدنيا.
+شكراً لأنك مع {المتجر} 🤍
+{العرض}
+{المهلة}`+CS,
+`يا هلا {الاسم} 🌟
+حبينا نقولك شكراً من القلب، وجودك معنا يفرق.
+{العرض}
+{المهلة}
+أي شي تحتاجه احنا بالخدمة.`+CS],
+formal:[`مرحباً {الاسم}،
+نتقدم لك بجزيل الشكر على ثقتك بـ {المتجر}، ونسعد دائماً بخدمتك.
+{العرض}
+{المهلة}`+CS,
+`السلام عليكم {الاسم}،
+شكراً لاختيارك {المتجر}. نعمل باستمرار على تطوير خدماتنا لتليق بك.
+{العرض}
+{المهلة}`+CS],
+hype:[`🙌🔥 *شكراً يا {الاسم}!* 🔥🙌
+انت من أسباب نجاحنا، وجهزنا لك شي يفرحك:
+{العرض}
+{المهلة}`+CS,
+`🎉 *{الاسم}، انت أسطورة!* 🎉
+شكراً إنك معنا في {المتجر} ⚡
+{العرض}
+{المهلة}`+CS],
+friendly:[`هلا {الاسم} 👋
+بس حبينا نقولك شكراً إنك معنا 🤍
+{العرض}
+{المهلة}
+وأي شي تحتاجه كلمنا.`+CS,
+`أهلين {الاسم} 🌙
+شكراً على ثقتك فينا، ويسعدنا نخدمك دايماً.
+{العرض}
+{المهلة}`+CS],
+short:[`شكراً يا {الاسم} 🤍 وجودك معنا يفرق.
+{العرض}
+{المهلة}`+CS,
+`{الاسم}، شكراً لثقتك في {المتجر} 🙏
+{العرض}
+{المهلة}`+CS]}
+};
+const CP_KEY='tvdash.campaign';
+let cp=(()=>{try{return JSON.parse(localStorage.getItem(CP_KEY)||'null')}catch(e){return null}})()||{};
+cp={goal:'winback',style:'praise',offer:'',deadline:'',noname:'الغالي',paste:'',texts:{},sent:{},skip:true,waitOn:true,wait:0,...cp};
+const cpKey=()=>cp.goal+'|'+cp.style;
+function campSave(){try{localStorage.setItem(CP_KEY,JSON.stringify(cp))}catch(e){}}
+const campText=()=>cp.texts[cpKey()]??(CAMP_TPLS[cp.goal]?.[cp.style]||[]).join('\n---\n');
+const campVariants=()=>campText().split(/\n\s*-{3,}\s*\n/).map(s=>s.trim()).filter(Boolean);
+function campFill(src,rc){
+  const map={'{الاسم}':rc?.name||cp.noname||'','{المتجر}':settings.store||DEFAULTS.store,'{السيرفر}':serverName(defaultServerId()),
+    '{العرض}':cp.offer?'🎁 '+cp.offer:'','{المهلة}':cp.deadline?'⏳ '+cp.deadline:'','{رابط_الدفع}':settings.payLink||'','{أرقام_الدعم}':supportBlock()};
+  // a line that only held an empty value (offer, deadline, link…) is removed; blank spacer lines stay
+  let t=src.split('\n').map(line=>{const f=line.replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).replace(/[ \t]{2,}/g,' ').trimEnd();
+    return line.trim()!==''&&!/[\p{L}\p{N}]/u.test(f)?null:f;}).filter(l=>l!==null).join('\n');
+  return t.replace(/\n{3,}/g,'\n\n').trim();
+}
+function campParse(){
+  const out=[],seen=new Set();
+  for(const raw of (cp.paste||'').split('\n')){const line=toLatin(raw);const m=line.match(/(\+|00)?\d[\d\s\-]{7,16}\d/);if(!m)continue;
+    const phone=normPhone(m[0]);if(phone.length<10||phone.length>15||seen.has(phone))continue;seen.add(phone);
+    out.push({phone,name:line.replace(m[0],'').replace(/[-–—:،,|]+/g,' ').replace(/\s+/g,' ').trim()});}
+  return out;
+}
+function campActivePhones(){return new Set(customers.filter(c=>c.phone&&daysLeft(c)>=0).map(c=>c.phone));}
+function campSources(){
+  const cleanName=s=>String(s||'').replace(/(\+|00)?[0-9][0-9\s\-]{7,}[0-9]/g,'').replace(/\s+/g,' ').trim();
+  return [
+    {id:'panelExpired',label:'خطوط البانل المنتهية اللي فيها رقم',list:panelLines.filter(l=>!l.customer_id&&!lineActive(l)&&l.phone_found).map(l=>({phone:l.phone_found,name:cleanName(l.fullname)}))},
+    {id:'custExpired',label:'زبائن اللوحة المنتهين',list:customers.filter(c=>!c.example&&c.phone&&daysLeft(c)<0).map(c=>({phone:c.phone,name:c.name}))},
+    {id:'custSoon',label:'زبائن ينتهون خلال 30 يوم',list:customers.filter(c=>!c.example&&c.phone&&daysLeft(c)>=0&&daysLeft(c)<=30).map(c=>({phone:c.phone,name:c.name}))}];
+}
+function campAddSource(id){
+  const s=campSources().find(x=>x.id===id);if(!s||!s.list.length)return;
+  const have=new Set(campParse().map(r=>r.phone));const add=s.list.filter(r=>!have.has(r.phone));
+  cp.paste=(cp.paste?cp.paste.replace(/\n*$/,'\n'):'')+add.map(r=>`+${r.phone}${r.name?' '+r.name:''}`).join('\n');campSave();
+  const ta=$('#cp_paste');if(ta)ta.value=cp.paste;renderCamp();toast(`انضاف ${add.length} رقم`);
+}
+let cpInT=null;
+function campInput(el){
+  const k={cp_offer:'offer',cp_deadline:'deadline',cp_noname:'noname',cp_paste:'paste'}[el.id];
+  if(el.id==='cp_text')cp.texts[cpKey()]=el.value;else cp[k]=el.value;
+  clearTimeout(cpInT);cpInT=setTimeout(()=>{campSave();renderCamp();},250);
+}
+function campQueue(){const act=cp.skip?campActivePhones():new Set();return campParse().filter(r=>!act.has(r.phone));}
+function campMark(st){
+  const q=campQueue();const next=q.find(r=>!cp.sent[r.phone]);if(!next)return;
+  cp.sent[next.phone]=st==='sent'?Date.now():'skip';
+  if(st==='sent'&&cp.waitOn)cp.wait=Date.now()+(45+Math.floor(Math.random()*46))*1000;
+  campSave();renderCamp();
+}
+let cpTick=null;
+function renderCamp(rebuild){
+  const v=$('#viewCamp');if(!v)return;
+  if(rebuild||!$('#cp_text')){
+    v.innerHTML=`<div class="card"><h3>📣 صانع الحملات</h3><span class="note">رسالة لزبائن من داخل اللوحة أو برّاها، تحمّسهم يرجعون أو يجددون. الإرسال يدوي من واتسابك، واحد واحد.</span>
+      <div class="sec"><h4>1. الهدف</h4><div class="chips">${CAMP_GOALS.map(g=>`<button class="chip" type="button" data-act="cpGoal" data-v="${g.id}" aria-pressed="${cp.goal===g.id}">${g.label}</button>`).join('')}</div></div>
+      <div class="sec"><h4>2. الأسلوب</h4><div class="chips">${CAMP_STYLES.map(s=>`<button class="chip" type="button" data-act="cpStyle" data-v="${s.id}" aria-pressed="${cp.style===s.id}">${s.label}</button>`).join('')}</div></div>
+      <div class="grid2"><div class="field"><label for="cp_offer">العرض (اختياري)</label><input id="cp_offer" placeholder="مثلاً: شهر مجاني مع اشتراك السنة"></div>
+        <div class="field"><label for="cp_deadline">المهلة (اختياري)</label><input id="cp_deadline" placeholder="مثلاً: العرض لين يوم الخميس"></div></div>
+      <div class="field"><label for="cp_noname">لو ما فيه اسم، نكتب بداله</label><input id="cp_noname" placeholder="الغالي"></div>
+      <div class="sec"><h4>3. الرسالة</h4><span class="hint">فيها صيغتين مفصولة بسطر <b>---</b> وتتبدّل بين الناس (تحمي رقمك). عدّلها براحتك، ويتحفظ تعديلك لهالهدف والأسلوب.</span>
+        <textarea class="msg" id="cp_text" dir="auto"></textarea>
+        <div class="msg-acts"><button class="btn ghost sm" type="button" data-act="cpReset">↩️ النص الأصلي</button><span class="hint" id="cp_varc"></span></div>
+        <h4>معاينة</h4><div class="preview" id="cp_prev"></div></div></div>
+    <div class="card"><h3>4. المستلمين <span class="count" id="cp_count">0</span></h3>
+      <textarea class="msg" id="cp_paste" style="min-height:110px" dir="auto" placeholder="الصق الأرقام هنا، كل رقم في سطر، ومعه الاسم لو تبي:&#10;0551234567 أبو فهد&#10;+966500000000"></textarea>
+      <div class="pacts" id="cp_src"></div>
+      <label class="switch" for="cp_skip"><span>تجاهل الزبائن النشطين في اللوحة <span class="hint">(عشان ما توصل "وحشتنا" لواحد مشترك)</span></span><input type="checkbox" id="cp_skip"></label>
+      <span class="hint" id="cp_ph"></span></div>
+    <div class="card"><h3>5. الإرسال</h3><label class="switch" for="cp_wait"><span>انتظار 45–90 ثانية بين كل رسالة <span class="hint">(ينصح فيه لحماية رقمك)</span></span><input type="checkbox" id="cp_wait"></label><div id="cp_send" class="form"></div></div>`;
+    $('#cp_offer').value=cp.offer;$('#cp_deadline').value=cp.deadline;$('#cp_noname').value=cp.noname;$('#cp_paste').value=cp.paste;$('#cp_text').value=campText();
+  }
+  $('#cp_skip').checked=!!cp.skip;$('#cp_wait').checked=!!cp.waitOn;
+  const vars=campVariants();$('#cp_varc').textContent=`${vars.length} صيغة`;
+  const all=campParse(),q=campQueue();
+  $('#cp_prev').textContent=vars.length?campFill(vars[0],q[0]||all[0]||{name:''}):'—';
+  $('#cp_count').textContent=q.length;
+  $('#cp_src').innerHTML=campSources().map(s=>`<button class="btn sm" type="button" data-act="cpSrc" data-v="${s.id}" ${s.list.length?'':'disabled'}>+ ${s.label} (${s.list.length})</button>`).join('')+(cp.paste?'<button class="btn sm ghost" type="button" data-act="cpClear">مسح القائمة</button>':'');
+  $('#cp_ph').textContent=all.length?`${all.length} رقم في القائمة${cp.skip&&all.length-q.length?` · ${all.length-q.length} نشطين بنتجاهلهم`:''}`:'';
+  const sentN=q.filter(r=>cp.sent[r.phone]&&cp.sent[r.phone]!=='skip').length,skipN=q.filter(r=>cp.sent[r.phone]==='skip').length;
+  const nextI=q.findIndex(r=>!cp.sent[r.phone]);const next=nextI<0?null:q[nextI];
+  const waitS=Math.max(0,Math.ceil(((cp.wait||0)-Date.now())/1000));
+  const box=$('#cp_send');
+  if(!q.length){box.innerHTML='<span class="hint">أضف مستلمين فوق عشان تبدأ.</span>';}
+  else if(!vars.length){box.innerHTML='<span class="hint">اكتب نص الرسالة فوق.</span>';}
+  else{
+    const msg=next?campFill(vars[nextI%vars.length],next):'';
+    box.innerHTML=`<div class="cp-prog" aria-label="التقدم"><i style="width:${Math.round((sentN+skipN)/q.length*100)}%"></i></div>
+      <span class="hint">انرسل ${sentN} · تخطيت ${skipN} · باقي ${q.length-sentN-skipN} من ${q.length}</span>
+      ${next?`<div class="cp-next"><div class="who">${esc(next.name||cp.noname||'بدون اسم')} <span class="mono hint">+${esc(next.phone)}</span></div>
+        <div class="preview">${esc(msg)}</div>
+        <div class="msg-acts"><a class="btn wa" href="${esc(waUrl(next.phone,msg))}" target="_blank" rel="noopener" data-act="cpSent" aria-disabled="${waitS>0}">${waitS>0?`استنى ${waitS} ثانية`:'▶️ أرسل في واتساب'}</a>
+          <button class="btn ghost" type="button" data-act="cpSkip">تخطّي</button></div>
+        <span class="hint">لما تضغط "أرسل" يفتح واتساب والرسالة جاهزة، اضغط إرسال هناك وارجع هنا للي بعده.</span></div>`
+      :'<div class="status-line ok">خلصت الحملة ✓</div>'}
+      <details class="more"><summary>القائمة كاملة</summary><div class="cp-list">${q.map(r=>`<div><span>${esc(r.name||'—')} <span class="mono hint">+${esc(r.phone)}</span></span><span>${cp.sent[r.phone]==='skip'?'تخطيت':cp.sent[r.phone]?'✓ انرسلت':''}</span></div>`).join('')}</div></details>
+      ${sentN+skipN?'<div><button class="btn sm ghost" type="button" data-act="cpRestart">ابدأ الإرسال من جديد</button></div>':''}`;
+  }
+  clearTimeout(cpTick);if(waitS>0&&tab==='camp')cpTick=setTimeout(()=>renderCamp(),1000);
+}
 
 /* ---------- boot ---------- */
 fillPkgSelect();renderAll();
