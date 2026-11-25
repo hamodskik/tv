@@ -592,7 +592,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.15 (الأرباح)';
+const APP_VERSION='1.16 (تجربة الحملات)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1465,7 +1465,7 @@ document.addEventListener('change',e=>{
     if(st.open==='renew'&&pk&&!st.amtTouched)st.amt=String(amountFor(pkgFromDays(Number(pk.duration_days)),c.screen,c.serverId)||'');renderDetail(true);}
 });
 document.addEventListener('input',e=>{
-  if(['cp_offer','cp_deadline','cp_noname','cp_text','cp_paste'].includes(e.target.id)){campInput(e.target);return}
+  if(['cp_offer','cp_deadline','cp_noname','cp_text','cp_paste','cp_test'].includes(e.target.id)){campInput(e.target);return}
   if(e.target.id==='pla_amt'&&plaState[openId]){plaState[openId].amt=e.target.value;plaState[openId].amtTouched=true;return}
   if(e.target.id==='plq'){plQuery=e.target.value;plShow=60;renderPanelResults();return}
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
@@ -2304,7 +2304,7 @@ short:[`شكراً يا {الاسم} 🤍 وجودك معنا يفرق.
 };
 const CP_KEY='tvdash.campaign';
 let cp=(()=>{try{return JSON.parse(localStorage.getItem(CP_KEY)||'null')}catch(e){return null}})()||{};
-cp={goal:'winback',style:'praise',offer:'',deadline:'',noname:'الغالي',paste:'',texts:{},sent:{},skip:true,waitOn:true,wait:0,...cp};
+cp={goal:'winback',style:'praise',offer:'',deadline:'',noname:'الغالي',paste:'',texts:{},sent:{},skip:true,waitOn:true,wait:0,testPhone:'',...cp};
 const cpKey=()=>cp.goal+'|'+cp.style;
 function campSave(){try{localStorage.setItem(CP_KEY,JSON.stringify(cp))}catch(e){}}
 const campText=()=>cp.texts[cpKey()]??(CAMP_TPLS[cp.goal]?.[cp.style]||[]).join('\n---\n');
@@ -2340,7 +2340,7 @@ function campAddSource(id){
 }
 let cpInT=null;
 function campInput(el){
-  const k={cp_offer:'offer',cp_deadline:'deadline',cp_noname:'noname',cp_paste:'paste'}[el.id];
+  const k={cp_offer:'offer',cp_deadline:'deadline',cp_noname:'noname',cp_paste:'paste',cp_test:'testPhone'}[el.id];
   if(el.id==='cp_text')cp.texts[cpKey()]=el.value;else cp[k]=el.value;
   clearTimeout(cpInT);cpInT=setTimeout(()=>{campSave();renderCamp();},250);
 }
@@ -2370,8 +2370,14 @@ function renderCamp(rebuild){
       <div class="pacts" id="cp_src"></div>
       <label class="switch" for="cp_skip"><span>تجاهل الزبائن النشطين في اللوحة <span class="hint">(عشان ما توصل "وحشتنا" لواحد مشترك)</span></span><input type="checkbox" id="cp_skip"></label>
       <span class="hint" id="cp_ph"></span></div>
-    <div class="card"><h3>5. الإرسال</h3><label class="switch" for="cp_wait"><span>انتظار 45–90 ثانية بين كل رسالة <span class="hint">(ينصح فيه لحماية رقمك)</span></span><input type="checkbox" id="cp_wait"></label><div id="cp_send" class="form"></div></div>`;
-    $('#cp_offer').value=cp.offer;$('#cp_deadline').value=cp.deadline;$('#cp_noname').value=cp.noname;$('#cp_paste').value=cp.paste;$('#cp_text').value=campText();
+    <div class="card"><h3>5. الإرسال</h3><label class="switch" for="cp_wait"><span>انتظار 45–90 ثانية بين كل رسالة <span class="hint">(ينصح فيه لحماية رقمك)</span></span><input type="checkbox" id="cp_wait"></label>
+      <div class="cp-next"><div class="who">🧪 جرّب قبل لا ترسل</div>
+        <span class="hint">ترسل الرسالة لرقمك أنت (أو أي رقم تجربة) وتشوف شكلها بالضبط في واتساب. التجربة ما تحسب على الحملة وما تعلّم أحد "انرسلت".</span>
+        <div class="field"><label for="cp_test">رقمك للتجربة</label><input id="cp_test" type="tel" dir="ltr" inputmode="tel" placeholder="05xxxxxxxx"></div>
+        <div class="msg-acts" id="cp_testb"></div>
+        <details class="more"><summary>شوف أول 3 رسايل بتطلع كيف</summary><div id="cp_dry" class="form"></div></details></div>
+      <div id="cp_send" class="form"></div></div>`;
+    $('#cp_offer').value=cp.offer;$('#cp_deadline').value=cp.deadline;$('#cp_noname').value=cp.noname;$('#cp_paste').value=cp.paste;$('#cp_text').value=campText();$('#cp_test').value=cp.testPhone||'';
   }
   $('#cp_skip').checked=!!cp.skip;$('#cp_wait').checked=!!cp.waitOn;
   const vars=campVariants();$('#cp_varc').textContent=`${vars.length} صيغة`;
@@ -2383,6 +2389,10 @@ function renderCamp(rebuild){
   const sentN=q.filter(r=>cp.sent[r.phone]&&cp.sent[r.phone]!=='skip').length,skipN=q.filter(r=>cp.sent[r.phone]==='skip').length;
   const nextI=q.findIndex(r=>!cp.sent[r.phone]);const next=nextI<0?null:q[nextI];
   const waitS=Math.max(0,Math.ceil(((cp.wait||0)-Date.now())/1000));
+  const tp=normPhone(cp.testPhone||''),tpOk=tp.length>=10&&tp.length<=15,sample=q[0]||all[0]||{name:''};
+  $('#cp_testb').innerHTML=vars.length?vars.map((s,i)=>`<a class="btn wa sm" href="${tpOk?esc(waUrl(tp,campFill(s,sample))):'#'}" target="_blank" rel="noopener" aria-disabled="${!tpOk}">🧪 ${vars.length>1?`الصيغة ${i+1}`:'الرسالة'} لرقمي</a>`).join('')+(tpOk?'':'<span class="hint">اكتب رقمك فوق.</span>'):'<span class="hint">اكتب نص الرسالة فوق.</span>';
+  const dry=(q.length?q:[{name:'',phone:''}]).slice(0,3);
+  $('#cp_dry').innerHTML=vars.length?dry.map((r,i)=>`<div class="hint">${esc(r.name||cp.noname||'بدون اسم')}${r.phone?` <span class="mono">+${esc(r.phone)}</span>`:''}${vars.length>1?` · الصيغة ${i%vars.length+1}`:''}</div><div class="preview">${esc(campFill(vars[i%vars.length],r))}</div>`).join(''):'';
   const box=$('#cp_send');
   if(!q.length){box.innerHTML='<span class="hint">أضف مستلمين فوق عشان تبدأ.</span>';}
   else if(!vars.length){box.innerHTML='<span class="hint">اكتب نص الرسالة فوق.</span>';}
