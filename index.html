@@ -456,7 +456,8 @@ a.btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none}
         <div class="sec"><h4>أرقام التواصل والدعم</h4>
           <span class="hint">تنضاف تلقائياً في رسالة التفعيل ورسالة التجديد كروابط واتساب سريعة، عشان الزبون يوصلك لو الرقم الأول ما رد. المتغير اسمه <b>{أرقام_الدعم}</b>.</span>
           <div id="supList" class="form"></div>
-          <div><button class="btn sm" type="button" data-act="supAdd">+ أضف رقم</button></div></div>
+          <div><button class="btn sm" type="button" data-act="supAdd">+ أضف رقم</button></div>
+          <label class="switch" for="s_sendonly"><span>رقم الإرسال التلقائي (Green-API) للإرسال بس <span class="hint">(رقم ثانوي/وهمي: الرسايل التلقائية والحملات توجّه الزبون يكلمك على أول رقم دعم فوق، وتنضاف ملاحظة إن رقم الإرسال ما يرد)</span></span><input type="checkbox" id="s_sendonly"></label></div>
         <div class="formerr" id="setErr" hidden></div>
         <div class="form-foot"><button class="btn primary" type="submit" id="btnSetSave">حفظ الإعدادات</button><button class="btn ghost" type="button" data-act="close">إلغاء</button><button class="btn danger" type="button" data-act="logout">تسجيل خروج</button></div>
         <span class="hint" id="appVersion"></span>
@@ -593,7 +594,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.17 (الحملات التلقائية)';
+const APP_VERSION='1.18 (رقم إرسال وهمي)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1244,6 +1245,17 @@ function supportBlock(){
   const l=(settings.supportNumbers||[]).filter(n=>n.phone);if(!l.length)return '';
   return '📞 للتواصل والدعم:\n'+l.map(n=>`• ${n.label||'واتساب'}: wa.me/${n.phone}`).join('\n');
 }
+// رقم الإرسال وهمي: "رد بـ *تجديد*" تصير "ارسل *تجديد* لرقم الدعم 👇" + رابط رقم الدعم، وملاحظة في الآخر
+const CTA_RE=/(يرجى الرد بكلمة|رد علينا بكلمة|ارسل لنا كلمة|رد الحين بـ|رد بـ|رد)\s*\*([^*\n]+)\*[.،]?/g;
+function sendOnlyTarget(){return settings.sendOnly?(settings.supportNumbers||[]).find(n=>n.phone):null}
+function sendOnlyFix(t){
+  const tg=sendOnlyTarget();if(!tg||!t)return t;
+  let linked=false;
+  const out=t.split('\n').flatMap(line=>{let hit=false;
+    const nl=line.replace(CTA_RE,(m,verb,kw)=>{hit=true;return /يرجى/.test(verb)?`يرجى مراسلتنا بكلمة *${kw}* على رقم ${tg.label||'الدعم'} 👇`:`ارسل *${kw}* لرقم ${tg.label||'الدعم'} 👇`;});
+    if(hit&&!linked){linked=true;return [nl,`👉 wa.me/${tg.phone}`];}return [nl];}).join('\n');
+  return out+'\n\n📵 هذا الرقم للإرسال بس وما نشوف الردود عليه، كلمنا على '+(linked?'الرقم اللي فوق':`wa.me/${tg.phone}`)+' 🤍';
+}
 function priceOf(pid,sid){return Number(serverOf(sid)?.prices?.[pid]?.p)||0}
 /* ---------- profit: revenue minus the credits each subscription costs ---------- */
 const DEFAULT_CREDITS={trial:0,'1m':2,'3m':2,'6m':3,'12m':5};
@@ -1533,6 +1545,7 @@ function openSettings(){
   $('#s_cc').value=settings.cc||'';$('#s_cur').value=settings.currency||'';
   $('#s_fee').value=settings.screenFee??35;
   $('#btnRestoreAll').hidden=!canDelete;
+  $('#s_sendonly').checked=!!settings.sendOnly;$('#s_sendonly').disabled=!canDelete;
   $('#s_tone').innerHTML=TONES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');$('#s_tone').value=defaultTone();$('#s_tone').disabled=!canDelete;
   $('#setErr').hidden=true;
   const ro=!canDelete;document.querySelectorAll('#setForm input').forEach(i=>i.disabled=ro);$('#btnSetSave').hidden=ro;document.querySelectorAll('[data-act=srvAdd],[data-act=supAdd],[data-act=srvDel],[data-act=supDel]').forEach(b=>b.hidden=ro);
@@ -1548,7 +1561,7 @@ $('#setForm').addEventListener('submit',async e=>{
   const prices={};for(const p of PKGS)prices[p.id]=def.prices[p.id].p;
   const next={...settings,store:$('#s_store').value.trim()||DEFAULTS.store,server:def.name,payLink:$('#s_pay').value.trim(),serverUrl:def.url,
     servers:setSrv,defaultServer:def.id,supportNumbers:setSup.filter(n=>n.phone),apps:setApps.filter(a=>a.label),appsArchive:[...(settings.appsArchive||[]),...getApps().filter(x=>!setApps.some(y=>y.id===x.id))].filter((x,i,arr)=>arr.findIndex(y=>y.id===x.id)===i),
-    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly'};
+    cc:toLatin($('#s_cc').value).replace(/\D/g,'')||'966',currency:$('#s_cur').value.trim(),screenFee:Number(toLatin($('#s_fee').value).replace(/[^\d.]/g,''))||0,prices,tone:$('#s_tone').value||'friendly',sendOnly:$('#s_sendonly').checked};
   $('#btnSetSave').disabled=true;
   try{await db.saveSettings(next);settings={...DEFAULTS,...next};closeAll();renderAll();toast('تم حفظ الإعدادات');syncResolved();}
   catch(ex){$('#setErr').textContent='ما قدرنا نحفظ، جرّب مرة ثانية';$('#setErr').hidden=false}
@@ -1663,7 +1676,8 @@ function allPayments(){const out=[];for(const c of customers){if(c.example)conti
 
 /* ---------- resolved templates (the server uses them for automatic reminders) ---------- */
 let syncing=false;
-function resolvedTemplates(){const o={};for(const t of TPLS){o[t.id]={};for(const tn of TONES)o[t.id][tn.id]=tplSource(t.id,tn.id);}return o;}
+function resolvedTemplates(){const fix=src=>sendOnlyTarget()?src.split(/\n\s*-{3,}\s*\n/).map(v=>sendOnlyFix(v.trim())).join('\n---\n'):src;
+  const o={};for(const t of TPLS){o[t.id]={};for(const tn of TONES)o[t.id][tn.id]=fix(tplSource(t.id,tn.id));}return o;}
 async function syncResolved(){
   if(!db||!canDelete||syncing)return;
   const res=resolvedTemplates();const url=location.origin+location.pathname;
@@ -2335,7 +2349,8 @@ function campFill(src,rc){
   // a line that only held an empty value (offer, deadline, link…) is removed; blank spacer lines stay
   let t=src.split('\n').map(line=>{const f=line.replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).replace(/[ \t]{2,}/g,' ').trimEnd();
     return line.trim()!==''&&!/[\p{L}\p{N}]/u.test(f)?null:f;}).filter(l=>l!==null).join('\n');
-  return t.replace(/\n{3,}/g,'\n\n').trim();
+  t=t.replace(/\n{3,}/g,'\n\n').trim();
+  return cp.mode==='auto'?sendOnlyFix(t):t;
 }
 function campParse(){
   const out=[],seen=new Set();
