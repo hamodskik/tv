@@ -595,7 +595,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.21 (القوالب الجديدة)';
+const APP_VERSION='1.22 (التجارب المجانية)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1455,6 +1455,9 @@ document.addEventListener('click',e=>{
     case 'cpSkip':campMark('skipped');break;
     case 'cpMode':cp.mode=t.dataset.v;campSave();renderCamp();break;
     case 'cpServer':cp.server=t.dataset.v;campSave();renderCamp(true);break;
+    case 'trCreate':trCreate();break;
+    case 'trFollow':trFollow(t.dataset.id);break;
+    case 'trConvert':trConvert(t.dataset.id);break;
     case 'ofKind':cp.of.kind=t.dataset.v;campSave();renderCamp();break;
     case 'ofPkg':cp.of.pkg=t.dataset.v;campSave();renderCamp();break;
     case 'ofPct':cp.of.pct=Number(t.dataset.v);$('#of_pct').value=cp.of.pct;campSave();renderCamp();break;
@@ -1497,6 +1500,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='cp_skip'){cp.skip=e.target.checked;campSave();renderCamp();return}
   if(e.target.id==='cp_wait'){cp.waitOn=e.target.checked;campSave();renderCamp();return}
   if(e.target.id==='ct_srv'){renderContacts();return}
+  if(e.target.id==='tr_srv'){trFillPkgs();return}
   if(e.target.id==='cp_mix'){cp.mix=e.target.checked;campSave();renderCamp();return}
   if(['ca_ph','ca_gap','ca_cap'].includes(e.target.id)){caSaveSettings();return}
   if(e.target.id==='pla_pkg'&&plaState[openId]){const st=plaState[openId];st.pkg=e.target.value;st.err='';const c=customers.find(x=>x.id===openId);const pk=panelPkgs(panelFor(serverOf(c.serverId).id)).find(x=>String(x.id)===st.pkg);
@@ -2001,11 +2005,112 @@ function renderPanel(){
       ${res.panel_total!=null&&res.panel_total>lines.length?`<div class="status-line err">البانل يقول عندك ${res.panel_total} خط، ووصلنا ${lines.length} بس. اضغط "مزامنة الحين"، ولو بقى الفرق كلّمني.</div>`:''}
       ${res.dates_updated||res.phones_added||res.passwords_updated?`<span class="hint">آخر مزامنة: ${res.dates_updated||0} تاريخ انتهاء تحدّث · ${res.phones_added||0} جوال انضاف · ${res.passwords_updated||0} باسورد تحدّث</span>`:''}
     </div>`;}).join('');
-  if(!$('#plCards')||!v.contains($('#plCards')))v.innerHTML='<div id="plCards" class="group"></div><div id="plBox" class="group"></div>';
+  if(!$('#plCards')||!v.contains($('#plCards')))v.innerHTML='<div id="plCards" class="group"></div><div id="trBox" class="group"></div><div id="plBox" class="group"></div>';
   $('#plCards').innerHTML=cards;
-  renderPanelLines();pollPanel();
+  renderTrials();renderPanelLines();pollPanel();
 }
 // خانة البحث تنرسم مرة وحدة، والنتائج بس تتحدّث مع الكتابة (عشان ما يطير المؤشر ولا يسكّر الكيبورد)
+/* ---------- free trials: a trial line for someone without adding them as a customer ---------- */
+let trials=null,trErr='',trLoading=false;const trSt={busy:false,err:'',retry:false,idem:'',res:null};
+const trialPkgs=sid=>(panels.find(p=>p.id===sid)?.packages||[]).filter(k=>(k.is_trial===true||k.is_trial==='true'||k.type==='trial')&&!(Number(k.credits)>0));
+const trialPanels=()=>getServers().filter(s=>panels.some(p=>p.id===s.id&&p.has_key)&&trialPkgs(s.id).length);
+async function loadTrials(){
+  if(!sb||!canWrite||trLoading)return;trLoading=true;
+  try{const {data,error}=await sb.from('trials').select('*').order('id',{ascending:false}).limit(300);if(error)throw error;trials=data||[];trErr='';}
+  catch(ex){trErr=/trials|schema cache|does not exist/i.test(ex.message||'')?'missing':errText(ex,ex.message||'');}
+  finally{trLoading=false}
+  if(tab==='panel')renderTrials();
+}
+const hoursAr=n=>n==1?'ساعة':n==2?'ساعتين':n<=10?`${n} ساعات`:`${n} ساعة`;
+function trialDur(t){const m=String(t.package_name||'').match(/(\d+)\s*HOUR/i);if(m)return hoursAr(Number(m[1]));
+  if(t.expires_at&&t.created_at){const hh=Math.round((new Date(t.expires_at)-new Date(t.created_at))/3600000);if(hh>0&&hh<72)return hoursAr(hh);}return '';}
+const timeAr=ts=>new Date(ts).toLocaleTimeString('ar-SA-u-nu-latn',{hour:'numeric',minute:'2-digit'});
+function trialMsg(t){
+  const sn=serverName(t.panel_id),dur=trialDur(t),live=t.expires_at&&new Date(t.expires_at)>Date.now();
+  return [`هلا ${t.name||'والله'} 👋`,`هذي تجربتك المجانية على ${sn} 🎉`,dur?`⏱️ مدة التجربة: ${dur}${live?` (لين الساعة ${timeAr(t.expires_at)})`:''}`:'','',
+    `👤 اسم المستخدم: ${t.username}`,`🔑 كلمة المرور: ${t.password}`,t.host?`🌐 الرابط: ${t.host}`:'','',
+    'جرّب وقول لنا رأيك، ولو عجبتك نفعّل لك الاشتراك على نفس الجهاز خلال دقائق 🤍','',supportBlock()].filter((l,i,a)=>l!==''||(a[i-1]!==''&&i>0)).join('\n').trim();
+}
+function trialFollowMsg(t){
+  const sn=serverName(t.panel_id),p=priceOf('12m',t.panel_id);
+  return [`هلا ${t.name||'والله'} 👋`,`خلصت تجربتك على ${sn}، وش رأيك؟ 😊`,`لو عجبتك، نفعّل لك اشتراك سنة${p?` بـ ${p} ${settings.currency||''}`.trimEnd():''} على نفس الجهاز خلال دقائق ⚡`,
+    'رد بـ *اشتراك* ونخدمك على طول 🤍','',supportBlock()].join('\n').trim();
+}
+function trialConverted(t){
+  if(!t.phone)return false;const d=String(t.created_at||'').slice(0,10);
+  return customers.some(c=>!c.example&&c.phone===t.phone&&(c.startDate>=d||(c.payments||[]).some(p=>String(p.date||'')>=d)));
+}
+function renderTrials(){
+  const box=$('#trBox');if(!box)return;
+  const tps=trialPanels();
+  if(!canWrite||!tps.length){box.innerHTML='';return}
+  if(!trials&&!trErr&&!trLoading)loadTrials();
+  if(!$('#tr_btn')||!box.contains($('#tr_btn'))){
+    box.innerHTML=`<div class="pcard"><div class="pcard-head"><div><h3>🧪 التجارب المجانية</h3><span class="hint">تجربة للعميل بدون ما ينضاف كزبون، وما تنحسب في الزبائن ولا الأرباح. باقات التجربة المجانية بس (0 كريدت).</span></div></div>
+      <div class="grid2"><div class="field"><label for="tr_srv">السيرفر</label><select id="tr_srv"></select></div>
+        <div class="field"><label for="tr_pkg">التجربة</label><select id="tr_pkg"></select></div>
+        <div class="field"><label for="tr_name">الاسم (اختياري)</label><input id="tr_name" placeholder="مثلاً: أبو فهد"></div>
+        <div class="field"><label for="tr_phone">الجوال (اختياري)</label><input id="tr_phone" class="ltr" inputmode="tel" placeholder="05xxxxxxxx"></div></div>
+      <div class="msg-acts"><button class="btn primary" type="button" data-act="trCreate" id="tr_btn">🧪 سوّ التجربة (مجانية)</button></div>
+      <div id="tr_res" class="form"></div>
+      <div id="tr_stats"></div>
+      <details class="more"><summary>التجارب السابقة</summary><div id="tr_list" class="form"></div></details></div>`;
+    $('#tr_srv').innerHTML=tps.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+    trFillPkgs();
+  }
+  const btn=$('#tr_btn');btn.disabled=trSt.busy;btn.textContent=trSt.busy?'جاري التجهيز…':trSt.retry?'🔁 حاول مرة ثانية':'🧪 سوّ التجربة (مجانية)';
+  const res=$('#tr_res');
+  if(trSt.err)res.innerHTML=`<div class="status-line err">${esc(trSt.err)}</div>`;
+  else if(trSt.res){const t=trSt.res,msg=trialMsg(t);
+    res.innerHTML=`<div class="status-line ok">التجربة جاهزة ✅${t.expires_at?` · تنتهي الساعة ${esc(timeAr(t.expires_at))}`:''}</div>
+      <div class="preview">${esc(msg)}</div>
+      <div class="msg-acts">${t.phone?`<a class="btn wa" href="${esc(waUrl(t.phone,msg))}" target="_blank" rel="noopener">💬 أرسلها في واتساب</a>`:''}
+        <button class="btn" type="button" data-act="copy" data-v="${esc(msg)}">📋 انسخ الرسالة</button>
+        <button class="btn ghost" type="button" data-act="copy" data-v="${esc(t.username)}">نسخ اليوزر</button><button class="btn ghost" type="button" data-act="copy" data-v="${esc(t.password)}">نسخ الباس</button></div>`;}
+  else res.innerHTML='';
+  if(trErr){$('#tr_stats').innerHTML=`<div class="status-line warn">${trErr==='missing'?'شغّل ملف supabase/trials.sql في Supabase أول (مرة وحدة).':'ما قدرنا نجيب التجارب: '+esc(trErr)}</div>`;$('#tr_list').innerHTML='';btn.disabled=true;return}
+  if(!trials){$('#tr_stats').innerHTML='';return}
+  const m=today().slice(0,7),mon=trials.filter(t=>String(t.created_at).slice(0,7)===m||new Date(t.created_at).toISOString().slice(0,7)===m);
+  const conv=mon.filter(trialConverted).length,ended=trials.filter(t=>t.expires_at&&new Date(t.expires_at)<=Date.now()&&!trialConverted(t)&&!t.followed_up&&t.phone);
+  $('#tr_stats').innerHTML=`<div class="pstats"><div><b>${mon.length}</b><span>تجربة هالشهر</span></div><div><b>${conv}</b><span>اشترك منهم${mon.length?` (${Math.round(conv/mon.length*100)}%)`:''}</span></div><div><b>${ended.length}</b><span>خلصت ويحتاجون متابعة</span></div></div>`;
+  $('#tr_list').innerHTML=trials.length?trials.slice(0,100).map(t=>{const live=t.expires_at&&new Date(t.expires_at)>Date.now(),cv=trialConverted(t);
+    const st=cv?'✅ صار زبون':live?`⏳ شغالة لين ${esc(timeAr(t.expires_at))}`:t.followed_up?'انتهت · تابعته ✓':'انتهت';
+    return `<div class="cp-next"><div class="who">${esc(t.name||'بدون اسم')}${t.phone?` <span class="mono hint">+${esc(t.phone)}</span>`:''} <span class="hint">· ${esc(serverName(t.panel_id))} · ${esc(ago(t.created_at))}</span></div>
+      <span class="hint">${st} · <span class="mono">${esc(t.username)}</span>${trialDur(t)?` · ${esc(trialDur(t))}`:''}</span>
+      <div class="msg-acts"><button class="btn sm" type="button" data-act="copy" data-v="${esc(trialMsg(t))}">📋 بيانات التجربة</button>
+        ${t.phone&&live?`<a class="btn sm wa" href="${esc(waUrl(t.phone,trialMsg(t)))}" target="_blank" rel="noopener">💬 أرسل البيانات</a>`:''}
+        ${t.phone&&!live&&!cv?`<a class="btn sm wa" href="${esc(waUrl(t.phone,trialFollowMsg(t)))}" target="_blank" rel="noopener" data-act="trFollow" data-id="${t.id}">📣 تابعه</a>`:''}
+        ${!cv?`<button class="btn sm ghost" type="button" data-act="trConvert" data-id="${t.id}">✅ سجّله زبون</button>`:''}</div></div>`;}).join('')
+    :'<span class="hint">ما فيه تجارب للحين.</span>';
+}
+function trFillPkgs(){
+  const sid=$('#tr_srv').value,l=trialPkgs(sid),last=(()=>{try{return localStorage.getItem('tvdash.trialPkg')}catch(e){return null}})();
+  $('#tr_pkg').innerHTML=l.map(k=>`<option value="${k.id}">${esc(k.name)}</option>`).join('');
+  if(last&&l.some(k=>String(k.id)===last))$('#tr_pkg').value=last;
+}
+async function trCreate(){
+  if(trSt.busy)return;
+  const sid=$('#tr_srv').value,pkg=Number($('#tr_pkg').value),name=$('#tr_name').value.trim(),rawPh=$('#tr_phone').value.trim(),phone=rawPh?normPhone(rawPh):'';
+  if(!pkg){trSt.err='اختر التجربة';renderTrials();return}
+  if(rawPh&&(phone.length<10||phone.length>15)){trSt.err='رقم الجوال غلط';renderTrials();return}
+  if(!trialPkgs(sid).some(k=>k.id===pkg)){trSt.err='هذي الباقة مو تجربة مجانية';renderTrials();return}
+  const sig=[sid,pkg,name,phone].join('|');if(!trSt.retry||trSt.sig!==sig){trSt.idem=crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,12);trSt.sig=sig;}
+  trSt.busy=true;trSt.err='';trSt.res=null;renderTrials();
+  try{const {data,error}=await sb.rpc('panel_create_trial',{pid:sid,package_id:pkg,p_name:name,p_phone:phone,idem:trSt.idem});if(error)throw error;
+    if(!data?.ok){trSt.err=data?.error||'ما قدرنا';trSt.retry=!!data?.retry;return}
+    trSt.retry=false;try{localStorage.setItem('tvdash.trialPkg',String(pkg))}catch(e){}
+    trSt.res={id:data.id,panel_id:sid,name,phone,username:data.username,password:data.password,host:data.host,expires_at:data.expires_at,package_name:data.package_name,created_at:new Date().toISOString()};
+    $('#tr_name').value='';$('#tr_phone').value='';
+    const pn=panels.find(p=>p.id===sid);if(pn&&data.remaining!=null)pn.credits=data.remaining;
+    await loadTrials();
+  }catch(ex){trSt.err=/panel_create_trial|schema cache/i.test(ex.message||'')?'شغّل ملف supabase/trials.sql في Supabase أول':'ما قدرنا: '+errText(ex,ex.message||'');trSt.retry=true;}
+  finally{trSt.busy=false;renderTrials();}
+}
+async function trFollow(id){const t=(trials||[]).find(x=>x.id===Number(id));if(!t||t.followed_up)return;t.followed_up=true;
+  try{await sb.rpc('trial_mark',{p_id:t.id,p_followed:true});}catch(e){}setTimeout(renderTrials,300);}
+function trConvert(id){const t=(trials||[]).find(x=>x.id===Number(id));if(!t)return;
+  openForm(null);$('#f_name').value=t.name||'';$('#f_phone').value=t.phone?'+'+t.phone:'';if(getServers().some(s=>s.id===t.panel_id))$('#f_server').value=t.panel_id;
+  $('#f_server').dispatchEvent(new Event('change',{bubbles:true}));}
 function renderPanelLines(){
   const box=$('#plBox');if(!box)return;
   if(!panels.length||!panelLines.length){box.innerHTML='';return}
