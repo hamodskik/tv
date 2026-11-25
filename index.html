@@ -119,6 +119,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .search input{border:0;background:transparent;padding:10px 0;width:100%;outline:none}
 .search svg{width:18px;height:18px;color:var(--muted);flex:none}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.chips.wrap{flex-wrap:wrap;overflow:visible}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 12px;font-size:.84rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 
@@ -594,7 +595,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.20 (العروض الجاهزة)';
+const APP_VERSION='1.21 (القوالب الجديدة)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1448,6 +1449,7 @@ document.addEventListener('click',e=>{
     case 'cpGoal':cp.goal=t.dataset.v;cp.skip=['winback','offer'].includes(cp.goal);campSave();renderCamp(true);break;
     case 'cpStyle':cp.style=t.dataset.v;campSave();renderCamp(true);break;
     case 'cpReset':delete cp.texts[cpKey()];campSave();renderCamp(true);toast('رجع النص الأصلي');break;
+    case 'cpResetAll':askConfirm('بنمسح تعديلاتك على نصوص الحملات ونرجع كل الأهداف والأساليب للقوالب الجديدة.','نعم، رجّعها',()=>{cp.texts={};campSave();closeAll();setTab('camp');renderCamp(true);toast('رجعت كل القوالب الجديدة');});break;
     case 'cpSrc':campAddSource(t.dataset.v);break;
     case 'cpSent':campMark('sent');break;
     case 'cpSkip':campMark('skipped');break;
@@ -2435,11 +2437,12 @@ let cp=(()=>{try{return JSON.parse(localStorage.getItem(CP_KEY)||'null')}catch(e
 cp={goal:'winback',style:'praise',offer:'',deadline:'',noname:'الغالي',paste:'',texts:{},sent:{},skip:true,waitOn:true,wait:0,testPhone:'',mode:'manual',rotate:5,mix:false,server:'',ctOpen:'',...cp};
 if(!cp.of)cp.of={kind:cp.offer?'custom':'none',pkg:'12m',price:'',pct:10,months:1};
 if(!cp.dl)cp.dl=cp.deadline?'custom':'none';
+if((cp.tv||0)<2){if(Object.keys(cp.texts||{}).length)cp.textsBak={...(cp.textsBak||{}),...cp.texts};cp.texts={};cp.tv=2;try{localStorage.setItem('tvdash.campaign',JSON.stringify(cp))}catch(e){}}
 const cpKey=()=>cp.goal+'|'+cp.style;
 function campSave(){try{localStorage.setItem(CP_KEY,JSON.stringify(cp))}catch(e){}}
 // كلمات تتبدل بين الناس: {هلا|أهلين} يختار وحدة لكل رقم
 const campDefault=(g,s)=>(CAMP_TPLS[g]?.[s]||[]).join('\n---\n');
-const campTextFor=s=>cp.texts[cp.goal+'|'+s]??campDefault(cp.goal,s);
+const campTextFor=s=>{const t=cp.texts[cp.goal+'|'+s];return t!=null&&String(t).trim()?t:campDefault(cp.goal,s);};
 const campText=()=>campTextFor(cp.style);
 const splitVars=t=>t.split(/\n\s*-{3,}\s*\n/).map(s=>s.trim()).filter(Boolean);
 const campVariants=()=>cp.mix?[cp.style,...CAMP_STYLES.map(s=>s.id).filter(s=>s!==cp.style)].flatMap(s=>splitVars(campTextFor(s))):splitVars(campText());
@@ -2542,24 +2545,24 @@ function renderCamp(rebuild){
         <textarea class="msg" id="ct_paste" style="min-height:90px" dir="auto" placeholder="الصق الأرقام هنا، كل رقم في سطر ومعه الاسم لو تبي"></textarea>
         <div class="msg-acts" id="ct_impb"></div></div></details></div>
     <div class="card"><h3>📣 صانع الحملات</h3><span class="note">رسالة لزبائن من داخل اللوحة أو برّاها، تحمّسهم يرجعون أو يجددون. يدوي من واتسابك، أو تلقائي عبر Green-API.</span>
-      <div class="sec"><h4>السيرفر</h4><div class="chips">${getServers().map(s=>`<button class="chip" type="button" data-act="cpServer" data-v="${esc(s.id)}" aria-pressed="${campSrv()===s.id}">${esc(s.name)}</button>`).join('')}</div>
+      <div class="sec"><h4>السيرفر</h4><div class="chips wrap">${getServers().map(s=>`<button class="chip" type="button" data-act="cpServer" data-v="${esc(s.id)}" aria-pressed="${campSrv()===s.id}">${esc(s.name)}</button>`).join('')}</div>
         <span class="hint" id="cp_srvh"></span></div>
       <div class="sec"><h4>💾 النماذج المحفوظة</h4><div class="chips" id="cp_tpls"></div></div>
-      <div class="sec"><h4>1. الهدف</h4><div class="chips">${CAMP_GOALS.map(g=>`<button class="chip" type="button" data-act="cpGoal" data-v="${g.id}" aria-pressed="${cp.goal===g.id}">${g.label}</button>`).join('')}</div></div>
-      <div class="sec"><h4>2. الأسلوب</h4><div class="chips">${CAMP_STYLES.map(s=>`<button class="chip" type="button" data-act="cpStyle" data-v="${s.id}" aria-pressed="${cp.style===s.id}">${s.label}</button>`).join('')}</div></div>
-      <div class="sec"><h4>🎁 العرض</h4><div class="chips">${OFFER_KINDS.map(k=>`<button class="chip" type="button" data-act="ofKind" data-v="${k.id}">${k.label}</button>`).join('')}</div>
+      <div class="sec"><h4>1. الهدف</h4><div class="chips wrap">${CAMP_GOALS.map(g=>`<button class="chip" type="button" data-act="cpGoal" data-v="${g.id}" aria-pressed="${cp.goal===g.id}">${g.label}</button>`).join('')}</div></div>
+      <div class="sec"><h4>2. الأسلوب</h4><div class="chips wrap">${CAMP_STYLES.map(s=>`<button class="chip" type="button" data-act="cpStyle" data-v="${s.id}" aria-pressed="${cp.style===s.id}">${s.label} <span class="hint">(${splitVars(campTextFor(s.id)).length})${cp.texts[cp.goal+'|'+s.id]!=null?' ✏️':''}</span></button>`).join('')}</div></div>
+      <div class="sec"><h4>🎁 العرض</h4><div class="chips wrap">${OFFER_KINDS.map(k=>`<button class="chip" type="button" data-act="ofKind" data-v="${k.id}">${k.label}</button>`).join('')}</div>
         <div id="of_pkgw" class="chips"><button class="chip" type="button" data-act="ofPkg" data-v="12m">سنة</button><button class="chip" type="button" data-act="ofPkg" data-v="6m">6 شهور</button></div>
         <div class="field" id="of_pricew"><label for="of_price">سعر العرض</label><input id="of_price" class="ltr num" inputmode="decimal" placeholder="مثلاً 120"><span class="hint" id="of_base"></span></div>
         <div class="field" id="of_pctw"><label for="of_pct">نسبة الخصم %</label><div class="chips">${[10,15,20,25,30].map(n=>`<button class="chip" type="button" data-act="ofPct" data-v="${n}">${n}%</button>`).join('')}</div><input id="of_pct" class="ltr num" inputmode="numeric" placeholder="أو اكتب النسبة"></div>
         <div class="field" id="of_monw"><label for="of_months">كم شهر مجاني</label><div class="chips">${[1,2,3].map(n=>`<button class="chip" type="button" data-act="ofMon" data-v="${n}">${monthsAr(n)}</button>`).join('')}</div><input id="of_months" class="ltr num" inputmode="numeric" placeholder="أو اكتب العدد"></div>
         <div class="field" id="of_customw"><label for="cp_offer">نص العرض</label><input id="cp_offer" placeholder="مثلاً: اشتراك سنة {السيرفر} بـ {السعر} + شاشة ثانية مجاناً"></div>
-        <h4>⏳ المهلة</h4><div class="chips">${DL_KINDS.map(k=>`<button class="chip" type="button" data-act="dlKind" data-v="${k.id}">${k.label}</button>`).join('')}</div>
+        <h4>⏳ المهلة</h4><div class="chips wrap">${DL_KINDS.map(k=>`<button class="chip" type="button" data-act="dlKind" data-v="${k.id}">${k.label}</button>`).join('')}</div>
         <div class="field" id="dl_customw"><label for="cp_deadline">نص المهلة</label><input id="cp_deadline" placeholder="مثلاً: العرض لين يوم الخميس"></div>
         <div class="preview" id="of_prev"></div></div>
       <div class="field"><label for="cp_noname">لو ما فيه اسم، نكتب بداله</label><input id="cp_noname" placeholder="الغالي"></div>
       <div class="sec"><h4>3. الرسالة</h4><span class="hint">فيها صيغتين مفصولة بسطر <b>---</b>، والصيغة تتغير كل كم شخص (تحدده تحت). وتقدر تكتب كلمات بديلة بين أقواس مثل <b>{هلا|أهلين|مرحبا}</b> وتنختار وحدة مختلفة لكل شخص. المتغيرات: <b>{الاسم} {السيرفر} {السعر}</b> (سعر السنة للسيرفر) <b>{العرض} {المهلة} {أرقام_الدعم}</b>. كل هذا يحمي رقمك. عدّلها براحتك، ويتحفظ تعديلك لهالهدف والأسلوب.</span>
         <textarea class="msg" id="cp_text" dir="auto"></textarea>
-        <div class="msg-acts"><button class="btn ghost sm" type="button" data-act="cpReset">↩️ النص الأصلي</button><span class="hint" id="cp_varc"></span></div>
+        <div class="msg-acts"><button class="btn ghost sm" type="button" data-act="cpReset">↩️ النص الأصلي</button><span class="hint" id="cp_varc"></span><button class="btn ghost sm" type="button" data-act="cpResetAll" id="cp_resetall" hidden>↩️ رجّع كل الأساليب للقوالب الجديدة</button></div>
         <div class="msg-acts" id="cp_tsave"><input id="cp_tname" placeholder="اسم النموذج، مثلاً: فولتشر - رجعة المنتهين" style="flex:1;min-width:0"><button class="btn sm" type="button" data-act="cpTplSave">💾 احفظ كنموذج</button></div>
         <h4>معاينة</h4><div class="preview" id="cp_prev"></div></div></div>
     <div class="card"><h3>4. المستلمين <span class="count" id="cp_count">0</span></h3>
@@ -2599,7 +2602,7 @@ function renderCamp(rebuild){
   $('#cp_mixc').textContent=`(${CAMP_STYLES.reduce((n,s)=>n+splitVars(campTextFor(s.id)).length,0)} صيغة بدل ${splitVars(campText()).length})`;
   renderContacts();renderCampTpls();renderOffer();
   $('#cp_srvh').textContent=`{السيرفر} = ${serverName(campSrv())}`+(campPrice()?` · {السعر} = ${campPrice()} (سعر السنة)`:' · حدد سعر السنة لهالسيرفر من الإعدادات عشان يشتغل {السعر}');
-  const vars=campVariants();$('#cp_varc').textContent=`${vars.length} صيغة`;
+  const vars=campVariants(),edited=cp.texts[cpKey()]!=null;$('#cp_varc').textContent=`${vars.length} صيغة`+(edited?' · ✏️ نص معدّل منك':'');$('#cp_resetall').hidden=!Object.keys(cp.texts).length;
   const all=campParse(),q=campQueue();
   $('#cp_prev').textContent=vars.length?campFill(vars[0],q[0]||all[0]||{name:''}):'—';
   $('#cp_count').textContent=q.length;
