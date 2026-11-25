@@ -594,7 +594,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.18 (رقم إرسال وهمي)';
+const APP_VERSION='1.19 (قوائم السيرفرات)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1452,6 +1452,17 @@ document.addEventListener('click',e=>{
     case 'cpSent':campMark('sent');break;
     case 'cpSkip':campMark('skipped');break;
     case 'cpMode':cp.mode=t.dataset.v;campSave();renderCamp();break;
+    case 'cpServer':cp.server=t.dataset.v;campSave();renderCamp(true);break;
+    case 'ctOpen':cp.ctOpen=cp.ctOpen===t.dataset.v?'':t.dataset.v;campSave();if(cp.ctOpen)$('#ct_q').value='';renderContacts();break;
+    case 'ctUse':ctUse(t.dataset.v);break;
+    case 'ctImport':ctImport(t.dataset.v);break;
+    case 'ctPanel':ctImportList(t.dataset.v,panelExpiredOf(t.dataset.v),'أرقام خطوط البانل');break;
+    case 'ctSaveRecip':ctImportList(campSrv(),campParse(),'المستلمين');break;
+    case 'ctOut':ctOptOut(t.dataset.v,t.dataset.out==='1');break;
+    case 'ctDel':ctRemove(t.dataset.v);break;
+    case 'cpTplSave':campTplSave();break;
+    case 'cpTpl':campTplApply(t.dataset.v);break;
+    case 'cpTplDel':campTplDel(t.dataset.v);break;
     case 'caTest':caTest();break;
     case 'caStart':caStart();break;
     case 'caCtl':caCtl(t.dataset.id,t.dataset.v);break;
@@ -1478,6 +1489,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAll()});
 document.addEventListener('change',e=>{
   if(e.target.id==='cp_skip'){cp.skip=e.target.checked;campSave();renderCamp();return}
   if(e.target.id==='cp_wait'){cp.waitOn=e.target.checked;campSave();renderCamp();return}
+  if(e.target.id==='ct_srv'){renderContacts();return}
   if(e.target.id==='cp_mix'){cp.mix=e.target.checked;campSave();renderCamp();return}
   if(['ca_ph','ca_gap','ca_cap'].includes(e.target.id)){caSaveSettings();return}
   if(e.target.id==='pla_pkg'&&plaState[openId]){const st=plaState[openId];st.pkg=e.target.value;st.err='';const c=customers.find(x=>x.id===openId);const pk=panelPkgs(panelFor(serverOf(c.serverId).id)).find(x=>String(x.id)===st.pkg);
@@ -1485,6 +1497,8 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('input',e=>{
   if(['cp_offer','cp_deadline','cp_noname','cp_text','cp_paste','cp_test','cp_rot'].includes(e.target.id)){campInput(e.target);return}
+  if(e.target.id==='ct_q'){renderContactsList();return}
+  if(e.target.id==='ct_paste'){renderContacts();return}
   if(e.target.id==='pla_amt'&&plaState[openId]){plaState[openId].amt=e.target.value;plaState[openId].amtTouched=true;return}
   if(e.target.id==='plq'){plQuery=e.target.value;plShow=60;renderPanelResults();return}
   if(e.target.id==='msgText'){const l=$('#waLink');const c=customers.find(x=>x.id===openId);if(l&&c)l.href=waUrl(c.phone,e.target.value);}
@@ -2325,7 +2339,7 @@ short:[`شكراً يا {الاسم} 🤍 وجودك معنا يفرق.
 };
 const CP_KEY='tvdash.campaign';
 let cp=(()=>{try{return JSON.parse(localStorage.getItem(CP_KEY)||'null')}catch(e){return null}})()||{};
-cp={goal:'winback',style:'praise',offer:'',deadline:'',noname:'الغالي',paste:'',texts:{},sent:{},skip:true,waitOn:true,wait:0,testPhone:'',mode:'manual',rotate:5,mix:false,...cp};
+cp={goal:'winback',style:'praise',offer:'',deadline:'',noname:'الغالي',paste:'',texts:{},sent:{},skip:true,waitOn:true,wait:0,testPhone:'',mode:'manual',rotate:5,mix:false,server:'',ctOpen:'',...cp};
 const cpKey=()=>cp.goal+'|'+cp.style;
 function campSave(){try{localStorage.setItem(CP_KEY,JSON.stringify(cp))}catch(e){}}
 // كلمات تتبدل بين الناس: {هلا|أهلين} يختار وحدة لكل رقم
@@ -2344,28 +2358,35 @@ function strHash(s){let h=2166136261;for(const ch of String(s)){h^=ch.codePointA
 function campSpin(t,seed){let k=0;return t.replace(/\{([^{}\n]*\|[^{}\n]*)\}/g,(m,body)=>{const o=body.split('|');return o[strHash(seed+'#'+(k++))%o.length];});}
 function campFill(src,rc){
   src=campSpin(src,rc?.phone||rc?.name||'x');
-  const map={'{الاسم}':rc?.name||cp.noname||'','{المتجر}':settings.store||DEFAULTS.store,'{السيرفر}':serverName(defaultServerId()),
-    '{العرض}':cp.offer?'🎁 '+cp.offer:'','{المهلة}':cp.deadline?'⏳ '+cp.deadline:'','{رابط_الدفع}':settings.payLink||'','{أرقام_الدعم}':supportBlock()};
+  const map={'{الاسم}':rc?.name||cp.noname||'','{المتجر}':settings.store||DEFAULTS.store,'{السيرفر}':serverName(campSrv()),'{السعر}':campPrice(),
+    '{العرض}':cp.offer?'🎁 '+campVars(cp.offer):'','{المهلة}':cp.deadline?'⏳ '+campVars(cp.deadline):'','{رابط_الدفع}':settings.payLink||'','{أرقام_الدعم}':supportBlock()};
   // a line that only held an empty value (offer, deadline, link…) is removed; blank spacer lines stay
   let t=src.split('\n').map(line=>{const f=line.replace(/\{[^{}\n]+\}/g,m=>Object.prototype.hasOwnProperty.call(map,m)?map[m]:m).replace(/[ \t]{2,}/g,' ').trimEnd();
     return line.trim()!==''&&!/[\p{L}\p{N}]/u.test(f)?null:f;}).filter(l=>l!==null).join('\n');
   t=t.replace(/\n{3,}/g,'\n\n').trim();
   return cp.mode==='auto'?sendOnlyFix(t):t;
 }
-function campParse(){
+const campSrv=()=>getServers().some(s=>s.id===cp.server)?cp.server:defaultServerId();
+const campPrice=()=>{const p=priceOf('12m',campSrv());return p?`${p} ${settings.currency||''}`.trim():'';};
+const campVars=t=>String(t).replace(/\{السعر\}/g,campPrice()).replace(/\{السيرفر\}/g,serverName(campSrv()));
+function campParse(){return parseNums(cp.paste);}
+function parseNums(text){
   const out=[],seen=new Set();
-  for(const raw of (cp.paste||'').split('\n')){const line=toLatin(raw);const m=line.match(/(\+|00)?\d[\d\s\-]{7,16}\d/);if(!m)continue;
+  for(const raw of (text||'').split('\n')){const line=toLatin(raw);const m=line.match(/(\+|00)?\d[\d\s\-]{7,16}\d/);if(!m)continue;
     const phone=normPhone(m[0]);if(phone.length<10||phone.length>15||seen.has(phone))continue;seen.add(phone);
     out.push({phone,name:line.replace(m[0],'').replace(/[-–—:،,|]+/g,' ').replace(/\s+/g,' ').trim()});}
   return out;
 }
 function campActivePhones(){return new Set(customers.filter(c=>c.phone&&daysLeft(c)>=0).map(c=>c.phone));}
+const cleanLineName=s=>String(s||'').replace(/(\+|00)?[0-9][0-9\s\-]{7,}[0-9]/g,'').replace(/\s+/g,' ').trim();
+const panelExpiredOf=sid=>panelLines.filter(l=>l.panel_id===sid&&!l.customer_id&&!lineActive(l)&&l.phone_found).map(l=>({phone:l.phone_found,name:cleanLineName(l.fullname)}));
 function campSources(){
-  const cleanName=s=>String(s||'').replace(/(\+|00)?[0-9][0-9\s\-]{7,}[0-9]/g,'').replace(/\s+/g,' ').trim();
+  const sid=campSrv(),sn=serverName(sid),mine=c=>(c.serverId||defaultServerId())===sid;
   return [
-    {id:'panelExpired',label:'خطوط البانل المنتهية اللي فيها رقم',list:panelLines.filter(l=>!l.customer_id&&!lineActive(l)&&l.phone_found).map(l=>({phone:l.phone_found,name:cleanName(l.fullname)}))},
-    {id:'custExpired',label:'زبائن اللوحة المنتهين',list:customers.filter(c=>!c.example&&c.phone&&daysLeft(c)<0).map(c=>({phone:c.phone,name:c.name}))},
-    {id:'custSoon',label:'زبائن ينتهون خلال 30 يوم',list:customers.filter(c=>!c.example&&c.phone&&daysLeft(c)>=0&&daysLeft(c)<=30).map(c=>({phone:c.phone,name:c.name}))}];
+    {id:'list',label:`قائمة ${sn}`,list:contactsOf(sid)},
+    {id:'panelExpired',label:`خطوط ${sn} المنتهية اللي فيها رقم`,list:panelExpiredOf(sid)},
+    {id:'custExpired',label:`زبائن ${sn} المنتهين`,list:customers.filter(c=>!c.example&&c.phone&&daysLeft(c)<0&&mine(c)).map(c=>({phone:c.phone,name:c.name}))},
+    {id:'custSoon',label:`زبائن ${sn} ينتهون خلال 30 يوم`,list:customers.filter(c=>!c.example&&c.phone&&daysLeft(c)>=0&&daysLeft(c)<=30&&mine(c)).map(c=>({phone:c.phone,name:c.name}))}];
 }
 function campAddSource(id){
   const s=campSources().find(x=>x.id===id);if(!s||!s.list.length)return;
@@ -2379,7 +2400,7 @@ function campInput(el){
   if(el.id==='cp_text')cp.texts[cpKey()]=el.value;else cp[k]=el.value;
   clearTimeout(cpInT);cpInT=setTimeout(()=>{campSave();renderCamp();},250);
 }
-function campQueue(){const act=cp.skip?campActivePhones():new Set();return campParse().filter(r=>!act.has(r.phone));}
+function campQueue(){const act=cp.skip?campActivePhones():new Set(),out=optedOut();return campParse().filter(r=>!act.has(r.phone)&&!out.has(r.phone));}
 function campMark(st){
   const q=campQueue();const next=q.find(r=>!cp.sent[r.phone]);if(!next)return;
   cp.sent[next.phone]=st==='sent'?Date.now():'skip';
@@ -2390,19 +2411,32 @@ let cpTick=null;
 function renderCamp(rebuild){
   const v=$('#viewCamp');if(!v)return;
   if(rebuild||!$('#cp_text')){
-    v.innerHTML=`<div class="card"><h3>📣 صانع الحملات</h3><span class="note">رسالة لزبائن من داخل اللوحة أو برّاها، تحمّسهم يرجعون أو يجددون. الإرسال يدوي من واتسابك، واحد واحد.</span>
+    const keep={ct_paste:$('#ct_paste')?.value||'',ct_q:$('#ct_q')?.value||''};
+    v.innerHTML=`<div class="card"><h3>📒 قوائم الأرقام</h3><span class="note">أرقام كل سيرفر محفوظة هنا (تلقاها من أي جهاز). الرقم يقدر يكون في أكثر من سيرفر.</span>
+      <div id="ct_rows" class="form"></div>
+      <div id="ct_view" class="form" hidden><div class="field"><label for="ct_q" id="ct_vtitle">بحث</label><input id="ct_q" placeholder="ابحث بالاسم أو الرقم"></div><div id="ct_list"></div></div>
+      <details class="more"><summary>＋ استيراد أرقام لقائمة</summary><div class="form">
+        <div class="field"><label for="ct_srv">السيرفر</label><select id="ct_srv"></select></div>
+        <textarea class="msg" id="ct_paste" style="min-height:90px" dir="auto" placeholder="الصق الأرقام هنا، كل رقم في سطر ومعه الاسم لو تبي"></textarea>
+        <div class="msg-acts" id="ct_impb"></div></div></details></div>
+    <div class="card"><h3>📣 صانع الحملات</h3><span class="note">رسالة لزبائن من داخل اللوحة أو برّاها، تحمّسهم يرجعون أو يجددون. يدوي من واتسابك، أو تلقائي عبر Green-API.</span>
+      <div class="sec"><h4>السيرفر</h4><div class="chips">${getServers().map(s=>`<button class="chip" type="button" data-act="cpServer" data-v="${esc(s.id)}" aria-pressed="${campSrv()===s.id}">${esc(s.name)}</button>`).join('')}</div>
+        <span class="hint" id="cp_srvh"></span></div>
+      <div class="sec"><h4>💾 النماذج المحفوظة</h4><div class="chips" id="cp_tpls"></div></div>
       <div class="sec"><h4>1. الهدف</h4><div class="chips">${CAMP_GOALS.map(g=>`<button class="chip" type="button" data-act="cpGoal" data-v="${g.id}" aria-pressed="${cp.goal===g.id}">${g.label}</button>`).join('')}</div></div>
       <div class="sec"><h4>2. الأسلوب</h4><div class="chips">${CAMP_STYLES.map(s=>`<button class="chip" type="button" data-act="cpStyle" data-v="${s.id}" aria-pressed="${cp.style===s.id}">${s.label}</button>`).join('')}</div></div>
       <div class="grid2"><div class="field"><label for="cp_offer">العرض (اختياري)</label><input id="cp_offer" placeholder="مثلاً: شهر مجاني مع اشتراك السنة"></div>
         <div class="field"><label for="cp_deadline">المهلة (اختياري)</label><input id="cp_deadline" placeholder="مثلاً: العرض لين يوم الخميس"></div></div>
       <div class="field"><label for="cp_noname">لو ما فيه اسم، نكتب بداله</label><input id="cp_noname" placeholder="الغالي"></div>
-      <div class="sec"><h4>3. الرسالة</h4><span class="hint">فيها صيغتين مفصولة بسطر <b>---</b>، والصيغة تتغير كل كم شخص (تحدده تحت). وتقدر تكتب كلمات بديلة بين أقواس مثل <b>{هلا|أهلين|مرحبا}</b> وتنختار وحدة مختلفة لكل شخص. كل هذا يحمي رقمك. عدّلها براحتك، ويتحفظ تعديلك لهالهدف والأسلوب.</span>
+      <div class="sec"><h4>3. الرسالة</h4><span class="hint">فيها صيغتين مفصولة بسطر <b>---</b>، والصيغة تتغير كل كم شخص (تحدده تحت). وتقدر تكتب كلمات بديلة بين أقواس مثل <b>{هلا|أهلين|مرحبا}</b> وتنختار وحدة مختلفة لكل شخص. المتغيرات: <b>{الاسم} {السيرفر} {السعر}</b> (سعر السنة للسيرفر) <b>{العرض} {المهلة} {أرقام_الدعم}</b>. كل هذا يحمي رقمك. عدّلها براحتك، ويتحفظ تعديلك لهالهدف والأسلوب.</span>
         <textarea class="msg" id="cp_text" dir="auto"></textarea>
         <div class="msg-acts"><button class="btn ghost sm" type="button" data-act="cpReset">↩️ النص الأصلي</button><span class="hint" id="cp_varc"></span></div>
+        <div class="msg-acts" id="cp_tsave"><input id="cp_tname" placeholder="اسم النموذج، مثلاً: فولتشر - رجعة المنتهين" style="flex:1;min-width:0"><button class="btn sm" type="button" data-act="cpTplSave">💾 احفظ كنموذج</button></div>
         <h4>معاينة</h4><div class="preview" id="cp_prev"></div></div></div>
     <div class="card"><h3>4. المستلمين <span class="count" id="cp_count">0</span></h3>
       <textarea class="msg" id="cp_paste" style="min-height:110px" dir="auto" placeholder="الصق الأرقام هنا، كل رقم في سطر، ومعه الاسم لو تبي:&#10;0551234567 أبو فهد&#10;+966500000000"></textarea>
       <div class="pacts" id="cp_src"></div>
+      <div class="msg-acts" id="cp_tolist"></div>
       <label class="switch" for="cp_skip"><span>تجاهل الزبائن النشطين في اللوحة <span class="hint">(عشان ما توصل "وحشتنا" لواحد مشترك)</span></span><input type="checkbox" id="cp_skip"></label>
       <span class="hint" id="cp_ph"></span></div>
     <div class="card"><h3>5. الإرسال</h3>
@@ -2426,18 +2460,25 @@ function renderCamp(rebuild){
           <button class="btn primary" type="button" id="ca_start" data-act="caStart">🚀 ابدأ الإرسال التلقائي</button></div>
         <div id="ca_msg" class="status-line" hidden></div>
         <div id="ca_list" class="form"></div></div></div>`;
+    $('#ct_srv').innerHTML=getServers().map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');$('#ct_srv').value=campSrv();
+    $('#cp_tsave').hidden=!canDelete;$('#ct_paste').value=keep.ct_paste;$('#ct_q').value=keep.ct_q;
     $('#cp_offer').value=cp.offer;$('#cp_deadline').value=cp.deadline;$('#cp_noname').value=cp.noname;$('#cp_paste').value=cp.paste;$('#cp_text').value=campText();$('#cp_test').value=cp.testPhone||'';$('#cp_rot').value=campRot();caFillInputs(true);
   }
   $('#cp_skip').checked=!!cp.skip;$('#cp_wait').checked=!!cp.waitOn;$('#cp_mix').checked=!!cp.mix;
   for(const b of document.querySelectorAll('[data-act=cpMode]'))b.setAttribute('aria-pressed',b.dataset.v===cp.mode);
   $('#cp_manual').hidden=cp.mode==='auto';$('#cp_auto').hidden=cp.mode!=='auto';
   $('#cp_mixc').textContent=`(${CAMP_STYLES.reduce((n,s)=>n+splitVars(campTextFor(s.id)).length,0)} صيغة بدل ${splitVars(campText()).length})`;
+  renderContacts();renderCampTpls();
+  $('#cp_srvh').textContent=`{السيرفر} = ${serverName(campSrv())}`+(campPrice()?` · {السعر} = ${campPrice()} (سعر السنة)`:' · حدد سعر السنة لهالسيرفر من الإعدادات عشان يشتغل {السعر}');
   const vars=campVariants();$('#cp_varc').textContent=`${vars.length} صيغة`;
   const all=campParse(),q=campQueue();
   $('#cp_prev').textContent=vars.length?campFill(vars[0],q[0]||all[0]||{name:''}):'—';
   $('#cp_count').textContent=q.length;
   $('#cp_src').innerHTML=campSources().map(s=>`<button class="btn sm" type="button" data-act="cpSrc" data-v="${s.id}" ${s.list.length?'':'disabled'}>+ ${s.label} (${s.list.length})</button>`).join('')+(cp.paste?'<button class="btn sm ghost" type="button" data-act="cpClear">مسح القائمة</button>':'');
-  $('#cp_ph').textContent=all.length?`${all.length} رقم في القائمة${cp.skip&&all.length-q.length?` · ${all.length-q.length} نشطين بنتجاهلهم`:''}`:'';
+  const nOut=all.filter(r=>optedOut().has(r.phone)).length,nAct=all.length-q.length-nOut;
+  $('#cp_ph').textContent=all.length?`${all.length} رقم في القائمة${nAct>0?` · ${nAct} نشطين بنتجاهلهم`:''}${nOut?` · ${nOut} طلبوا ما نراسلهم`:''}`:'';
+  const inList=new Set(contactsOf(campSrv(),true).map(r=>r.phone)),notIn=all.filter(r=>!inList.has(r.phone));
+  $('#cp_tolist').innerHTML=contacts&&notIn.length?`<button class="btn sm" type="button" data-act="ctSaveRecip">💾 احفظ ${notIn.length} رقم في قائمة ${esc(serverName(campSrv()))}</button>`:'';
   const sentN=q.filter(r=>cp.sent[r.phone]&&cp.sent[r.phone]!=='skip').length,skipN=q.filter(r=>cp.sent[r.phone]==='skip').length;
   const nextI=q.findIndex(r=>!cp.sent[r.phone]);const next=nextI<0?null:q[nextI];
   const waitS=Math.max(0,Math.ceil(((cp.wait||0)-Date.now())/1000));
@@ -2463,6 +2504,86 @@ function renderCamp(rebuild){
   }
   renderCampAuto();
   clearTimeout(cpTick);if(waitS>0&&tab==='camp'&&cp.mode!=='auto')cpTick=setTimeout(()=>renderCamp(),1000);
+}
+
+/* ---------- contact lists per server (Supabase table contacts) ---------- */
+let contacts=null,contactsErr='',contactsLoading=false;
+function optedOut(){return new Set((contacts||[]).filter(c=>c.opted_out).map(c=>c.phone));}
+function contactsOf(sid,all){return (contacts||[]).filter(c=>(c.servers||[]).includes(sid)&&(all||!c.opted_out)).map(c=>({phone:c.phone,name:c.name||'',opted_out:c.opted_out}));}
+async function loadContacts(){
+  if(!sb||!canWrite||contactsLoading)return;contactsLoading=true;
+  try{contacts=await fetchAll(()=>sb.from('contacts').select('phone,name,servers,opted_out').order('phone',{ascending:true}));contactsErr='';}
+  catch(ex){contactsErr=/contacts|schema cache|does not exist/i.test(ex.message||'')?'missing':errText(ex,ex.message||'');contacts=contacts||null;}
+  finally{contactsLoading=false}
+  if(tab==='camp')renderCamp();
+}
+function renderContacts(){
+  const rows=$('#ct_rows');if(!rows)return;
+  if(!contacts&&!contactsErr&&!contactsLoading)loadContacts();
+  if(contactsErr){rows.innerHTML=`<div class="status-line warn">${contactsErr==='missing'?'شغّل ملف supabase/campaigns.sql من جديد في Supabase (فيه جدول القوائم).':'ما قدرنا نجيب القوائم: '+esc(contactsErr)}</div>`;$('#ct_impb').innerHTML='';return}
+  if(!contacts){rows.innerHTML='<span class="hint">جاري التحميل…</span>';return}
+  rows.innerHTML=getServers().map(s=>{const l=contactsOf(s.id,true),out=l.filter(x=>x.opted_out).length;
+    return `<div class="cp-next"><div class="who">${esc(s.name)} <span class="count">${l.length-out}</span>${out?` <span class="hint">· 🚫 ${out} ما نراسلهم</span>`:''}</div>
+      <div class="msg-acts"><button class="btn sm primary" type="button" data-act="ctUse" data-v="${esc(s.id)}" ${l.length-out?'':'disabled'}>📣 حملة لهالقائمة</button>
+        <button class="btn sm" type="button" data-act="ctOpen" data-v="${esc(s.id)}" aria-pressed="${cp.ctOpen===s.id}" ${l.length?'':'disabled'}>${cp.ctOpen===s.id?'إخفاء':'عرض الأرقام'}</button></div></div>`;}).join('');
+  const sid=$('#ct_srv').value||campSrv(),sn=serverName(sid),n=parseNums($('#ct_paste').value).length,pe=panelExpiredOf(sid);
+  $('#ct_impb').innerHTML=`<button class="btn sm primary" type="button" data-act="ctImport" data-v="${esc(sid)}" ${n?'':'disabled'}>💾 احفظ ${n||''} رقم في قائمة ${esc(sn)}</button>`+
+    (pe.length?`<button class="btn sm" type="button" data-act="ctPanel" data-v="${esc(sid)}">+ أرقام خطوط ${esc(sn)} المنتهية (${pe.length})</button>`:'');
+  const view=$('#ct_view');const open=getServers().some(s=>s.id===cp.ctOpen)&&contactsOf(cp.ctOpen,true).length;view.hidden=!open;
+  if(open){$('#ct_vtitle').textContent=`أرقام ${serverName(cp.ctOpen)}`;renderContactsList();}
+}
+function renderContactsList(){
+  const box=$('#ct_list');if(!box||!cp.ctOpen)return;
+  const qv=toLatin($('#ct_q').value||'').trim().toLowerCase(),l=contactsOf(cp.ctOpen,true).filter(r=>!qv||r.phone.includes(qv.replace(/\D/g,'')||'§')||r.name.toLowerCase().includes(qv));
+  box.innerHTML=`<div class="cp-list">${l.slice(0,150).map(r=>`<div><span>${esc(r.name||'—')} <span class="mono hint">+${esc(r.phone)}</span>${r.opted_out?' <span class="hint">🚫 ما نراسله</span>':''}</span>
+    <span class="msg-acts"><button class="btn sm ghost" type="button" data-act="ctOut" data-v="${esc(r.phone)}" data-out="${r.opted_out?0:1}">${r.opted_out?'رجّعه':'🚫 لا ترسل له'}</button><button class="btn sm ghost" type="button" data-act="ctDel" data-v="${esc(r.phone)}" aria-label="شيله من القائمة">✕</button></span></div>`).join('')||'<div>ما فيه نتائج</div>'}</div>`+(l.length>150?`<span class="hint">يظهر أول 150 من ${l.length}، ابحث عشان توصل للباقي.</span>`:'');
+}
+function ctUse(sid){
+  const l=contactsOf(sid);if(!l.length)return;
+  const go=()=>{cp.server=sid;cp.paste=l.map(r=>`+${r.phone}${r.name?' '+r.name:''}`).join('\n');cp.sent={};cp.wait=0;campSave();renderCamp(true);toast(`المستلمين صاروا قائمة ${serverName(sid)} (${l.length})`);
+    document.querySelector('#cp_paste')?.closest('.card')?.scrollIntoView({behavior:'smooth',block:'start'});};
+  if(campParse().length&&cp.server===sid&&cp.paste===l.map(r=>`+${r.phone}${r.name?' '+r.name:''}`).join('\n'))return go();
+  if(campParse().length)askConfirm(`بنستبدل المستلمين الحاليين (${campParse().length}) بقائمة ${serverName(sid)} (${l.length}).`,'نعم، استبدل',()=>{closeAll();setTab('camp');go();});else go();
+}
+async function ctImportList(sid,list,what){
+  if(!list.length)return;
+  try{const {data,error}=await sb.rpc('contacts_import',{p_server:sid,p_items:list.map(r=>({phone:r.phone,name:r.name||''}))});if(error)throw error;
+    toast(`انحفظ في قائمة ${serverName(sid)}: ${data.added} رقم${data.already?` (${data.already} كانوا موجودين)`:''}`);await loadContacts();return data;}
+  catch(ex){toast('ما انحفظت '+what+': '+errText(ex,ex.message||''));}
+}
+async function ctImport(sid){const l=parseNums($('#ct_paste').value);const d=await ctImportList(sid,l,'الأرقام');if(d){$('#ct_paste').value='';renderContacts();}}
+async function ctOptOut(phone,out){
+  const {error}=await sb.rpc('contacts_optout',{p_phone:phone,p_out:out});if(error){toast('ما قدرنا: '+errText(error,error.message));return}
+  const c=(contacts||[]).find(x=>x.phone===phone);if(c)c.opted_out=out;toast(out?'تمام، ما بنراسله في أي حملة':'رجع للقائمة');renderCamp();
+}
+function ctRemove(phone){
+  askConfirm(`بنشيل +${phone} من قائمة ${serverName(cp.ctOpen)}.`,'نعم، شيله',async()=>{closeAll();setTab('camp');
+    const {error}=await sb.rpc('contacts_remove',{p_server:cp.ctOpen,p_phones:[phone]});if(error){toast('ما قدرنا: '+errText(error,error.message));return}
+    toast('انشال من القائمة');await loadContacts();});
+}
+/* saved campaign templates (settings.campTemplates, owner saves) */
+function renderCampTpls(){
+  const box=$('#cp_tpls');if(!box)return;const l=settings.campTemplates||[];
+  box.innerHTML=l.length?l.map(t=>`<span class="chip" style="display:inline-flex;gap:6px;align-items:center"><button type="button" class="linklike" data-act="cpTpl" data-v="${esc(t.id)}" style="all:unset;cursor:pointer">${esc(t.name)} <span class="hint">· ${esc(serverName(t.server))}</span></button>${canDelete?`<button type="button" data-act="cpTplDel" data-v="${esc(t.id)}" aria-label="حذف النموذج" style="all:unset;cursor:pointer;opacity:.6">✕</button>`:''}</span>`).join('')
+    :'<span class="hint">ما فيه نماذج للحين. اضبط الحملة تحت واحفظها كنموذج.</span>';
+}
+async function campTplSave(){
+  const name=$('#cp_tname').value.trim();if(!name){toast('اكتب اسم للنموذج');$('#cp_tname').focus();return}
+  const t={id:'t'+Date.now().toString(36),name:name.slice(0,60),server:campSrv(),goal:cp.goal,style:cp.style,text:campText(),offer:cp.offer,deadline:cp.deadline,noname:cp.noname,mix:!!cp.mix,rotate:campRot()};
+  const l=(settings.campTemplates||[]).filter(x=>x.name!==t.name);
+  try{const next={...settings,campTemplates:[...l,t].slice(-40)};await db.saveSettings(next);settings=next;$('#cp_tname').value='';renderCampTpls();toast('انحفظ النموذج ✅');}
+  catch(ex){toast('ما انحفظ النموذج: '+errText(ex,ex.message||''));}
+}
+function campTplApply(id){
+  const t=(settings.campTemplates||[]).find(x=>x.id===id);if(!t)return;
+  Object.assign(cp,{server:t.server,goal:t.goal,style:t.style,offer:t.offer||'',deadline:t.deadline||'',noname:t.noname||cp.noname,mix:!!t.mix,rotate:t.rotate||5});
+  cp.texts[t.goal+'|'+t.style]=t.text;campSave();renderCamp(true);toast(`انفتح النموذج: ${t.name}`);
+}
+function campTplDel(id){
+  const t=(settings.campTemplates||[]).find(x=>x.id===id);if(!t)return;
+  askConfirm(`بنحذف النموذج "${t.name}".`,'نعم، احذفه',async()=>{closeAll();setTab('camp');
+    try{const next={...settings,campTemplates:(settings.campTemplates||[]).filter(x=>x.id!==id)};await db.saveSettings(next);settings=next;renderCampTpls();toast('انحذف النموذج');}
+    catch(ex){toast('ما انحذف: '+errText(ex,ex.message||''));}});
 }
 
 /* ---------- campaigns: automatic sending through Green-API (server sends; owner starts) ---------- */
@@ -2507,6 +2628,7 @@ function renderCampAuto(){
   list.innerHTML=cs.length?'<h4>الحملات</h4>'+cs.map(c=>{const tot=c.pending+c.sending+c.sent+c.failed+c.skipped,done=c.sent+c.failed+c.skipped,[lbl]=CA_ST[c.status]||[c.status];
     return `<div class="cp-next"><div class="who">${esc(c.title)} <span class="hint">${lbl}</span></div>
       <div class="cp-prog"><i style="width:${tot?Math.round(done/tot*100):0}%"></i></div>
+      ${c.converted?`<div class="status-line ok">اشترك أو جدد منهم ${c.converted} خلال 14 يوم ✅</div>`:''}
       <span class="hint">انرسل ${c.sent} · باقي ${c.pending+c.sending}${c.failed?` · فشل ${c.failed}`:''}${c.skipped?` · تجاوزنا ${c.skipped}`:''} من ${tot}${c.last_at?` · آخر رسالة ${new Date(c.last_at).toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'})}`:''}</span>
       ${c.note?`<div class="status-line warn">${esc(c.note)}</div>`:''}${c.failed&&c.last_error?`<span class="hint">آخر خطأ: ${esc(caErr(c.last_error))}</span>`:''}
       <div class="msg-acts">${c.status==='running'?`<button class="btn sm" type="button" data-act="caCtl" data-v="pause" data-id="${c.id}">⏸️ وقّف مؤقتاً</button>`:''}
@@ -2537,11 +2659,11 @@ async function caTest(){
 }
 function caStart(){
   const items=caItems();if(!items.length)return;
-  const {days}=caPlan(items.length);const g=CAMP_GOALS.find(x=>x.id===cp.goal)?.label||'حملة';
+  const {days}=caPlan(items.length);const g=serverName(campSrv())+' · '+(CAMP_GOALS.find(x=>x.id===cp.goal)?.label||'حملة');
   askConfirm(`بتبدأ حملة "${g}" لـ ${items.length} رقم، وتنرسل لحالها من رقم الواتساب المربوط: ${caOv.per_hour} كل ساعة، بين كل رسالة ${arMin(caOv.gap_min)}، وبحد ${caOv.daily_cap} باليوم (تقريباً ${arDays(days)}). تقدر توقفها أي وقت.`,'نعم، ابدأ',async()=>{
     closeAll();setTab('camp');
-    try{const {data,error}=await sb.rpc('camp_create',{p_title:`${g} · ${today()}`,p_items:items});if(error)throw error;
-      caShow(data.added?`بدأت الحملة ✅ انضاف ${data.added} رقم للطابور.`+(data.recent?` تجاوزنا ${data.recent} وصلتهم حملة خلال آخر 3 أيام.`:'')+(data.invalid?` و${data.invalid} مكرر أو رقمه غلط.`:''):'ما انضاف أحد: كل الأرقام وصلتها حملة خلال آخر 3 أيام أو أرقامها غلط.',data.added?'ok':'warn');
+    try{const {data,error}=await sb.rpc('camp_create',{p_title:`${g} · ${today()}`,p_items:items,p_server:campSrv()});if(error)throw error;
+      caShow(data.added?`بدأت الحملة ✅ انضاف ${data.added} رقم للطابور.`+(data.recent?` تجاوزنا ${data.recent} (وصلتهم حملة خلال آخر 3 أيام أو طلبوا ما نراسلهم).`:'')+(data.invalid?` و${data.invalid} مكرر أو رقمه غلط.`:''):'ما انضاف أحد: كل الأرقام وصلتها حملة خلال آخر 3 أيام أو أرقامها غلط.',data.added?'ok':'warn');
       await loadCampOv();
     }catch(ex){caShow('ما بدأت الحملة: '+(/not configured/i.test(ex.message||'')?'اربط Green-API أول':errText(ex,ex.message||'')),'err')}
   });

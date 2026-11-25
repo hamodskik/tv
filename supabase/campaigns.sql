@@ -9,7 +9,84 @@
 --   • التذكيرات لها أولوية على الحملات
 --   • لو فشلت 3 رسائل ورا بعض، الحملة توقف لحالها ويوصلك تنبيه
 --   • نص كل رسالة يتجهز في اللوحة (الصيغة تتغير كل 5 أشخاص + كلمات متبدلة)
+--   • قوائم أرقام لكل سيرفر (الرقم يقدر يكون في أكثر من سيرفر)، و"لا ترسل له"
 -- ============================================================
+
+-- ---------- قوائم الأرقام (لكل سيرفر) ----------
+create table if not exists public.contacts (
+  phone      text primary key check (phone ~ '^[0-9]{10,15}$'),
+  name       text not null default '' check (char_length(name) <= 200),
+  servers    text[] not null default '{}',          -- أرقام السيرفرات من إعدادات اللوحة
+  opted_out  boolean not null default false,        -- طلب ما نراسله
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by uuid default auth.uid() references auth.users(id) on delete set null
+);
+create index if not exists contacts_servers_idx on public.contacts using gin (servers);
+alter table public.contacts enable row level security;
+drop policy if exists "staff read contacts" on public.contacts;
+create policy "staff read contacts" on public.contacts for select to authenticated using (public.is_staff());
+revoke all on public.contacts from anon;
+revoke insert, update, delete on public.contacts from authenticated;
+grant select on public.contacts to authenticated;
+
+-- استيراد أرقام لقائمة سيرفر: items = [{phone, name}]
+create or replace function public.contacts_import(p_server text, p_items jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare n_valid int; n_had int; n_new int;
+begin
+  if not public.is_staff() then raise exception 'permission denied'; end if;
+  if coalesce(char_length(p_server), 0) not between 1 and 40 then raise exception 'bad server'; end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) > 20000 then raise exception 'bad items'; end if;
+  create temp table if not exists _imp (phone text primary key, name text) on commit drop;
+  truncate _imp;
+  insert into _imp
+  select distinct on (ph) ph, nm from (
+    select regexp_replace(coalesce(e->>'phone', ''), '\D', '', 'g') as ph, left(btrim(coalesce(e->>'name', '')), 200) as nm
+      from jsonb_array_elements(p_items) e) s
+   where ph ~ '^[0-9]{10,15}$' order by ph, (nm = '');
+  select count(*) into n_valid from _imp;
+  select count(*) into n_had from _imp i join public.contacts c using (phone) where p_server = any (c.servers);
+  select count(*) into n_new from _imp i where not exists (select 1 from public.contacts c where c.phone = i.phone);
+  insert into public.contacts (phone, name, servers)
+  select phone, name, array[p_server] from _imp
+  on conflict (phone) do update set
+    servers    = case when p_server = any (contacts.servers) then contacts.servers else contacts.servers || p_server end,
+    name       = case when contacts.name = '' then excluded.name else contacts.name end,
+    updated_at = now();
+  return jsonb_build_object('added', n_valid - n_had, 'new', n_new, 'already', n_had,
+                            'invalid', jsonb_array_length(p_items) - n_valid);
+end $$;
+
+-- إزالة أرقام من قائمة سيرفر (الرقم ينحذف لو ما بقى في أي قائمة وما عليه "لا ترسل له")
+create or replace function public.contacts_remove(p_server text, p_phones text[]) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.is_staff() then raise exception 'permission denied'; end if;
+  update public.contacts set servers = array_remove(servers, p_server), updated_at = now()
+   where phone = any (p_phones) and p_server = any (servers);
+  get diagnostics n = row_count;
+  delete from public.contacts where phone = any (p_phones) and servers = '{}' and not opted_out;
+  return n;
+end $$;
+
+-- "لا ترسل له" (أو إلغاؤها)
+create or replace function public.contacts_optout(p_phone text, p_out boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare ph text := regexp_replace(coalesce(p_phone, ''), '\D', '', 'g');
+begin
+  if not public.is_staff() then raise exception 'permission denied'; end if;
+  if ph !~ '^[0-9]{10,15}$' then raise exception 'bad phone'; end if;
+  insert into public.contacts (phone, opted_out) values (ph, p_out)
+  on conflict (phone) do update set opted_out = p_out, updated_at = now();
+  if p_out then
+    update public.camp_queue set status = 'skipped', error = 'طلب ما نراسله' where phone = ph and status = 'pending';
+  end if;
+end $$;
+
+revoke all on function public.contacts_import(text, jsonb), public.contacts_remove(text, text[]), public.contacts_optout(text, boolean) from public, anon;
+grant execute on function public.contacts_import(text, jsonb), public.contacts_remove(text, text[]), public.contacts_optout(text, boolean) to authenticated;
 
 alter table private.notify_config add column if not exists camp_per_hour  smallint not null default 5;
 alter table private.notify_config add column if not exists camp_gap_min   smallint not null default 2;
@@ -25,6 +102,7 @@ create table if not exists public.campaigns (
   created_at   timestamptz not null default now(),
   created_by   uuid default auth.uid() references auth.users(id) on delete set null
 );
+alter table public.campaigns add column if not exists server_id text not null default '';
 
 create table if not exists public.camp_queue (
   id          bigserial primary key,
@@ -53,6 +131,7 @@ create policy "staff read camp_queue" on public.camp_queue for select to authent
 -- الكتابة عن طريق الأوامر تحت بس
 revoke all on public.campaigns, public.camp_queue from anon;
 revoke insert, update, delete on public.campaigns, public.camp_queue from authenticated;
+grant select on public.campaigns, public.camp_queue to authenticated;
 
 -- ---------- كل دقيقة: يتأكد من اللي انرسل، ويرسل التالي ----------
 create or replace function public.tv_camp_tick() returns void
@@ -124,6 +203,11 @@ begin
    order by c.id, q.seq limit 1 for update of q skip locked;
   if nxt.id is null then return; end if;
 
+  -- نتجاوز الرقم لو طلب ما نراسله
+  if exists (select 1 from public.contacts where phone = nxt.phone and opted_out) then
+    update public.camp_queue set status = 'skipped', error = 'طلب ما نراسله' where id = nxt.id;
+    return;
+  end if;
   -- نتجاوز الرقم لو صار زبون نشط بعد ما بدأت الحملة
   if exists (select 1 from public.customers where phone = nxt.phone and not example
                and end_date >= private.riyadh_now()::date) then
@@ -146,7 +230,8 @@ revoke all on function public.tv_camp_tick() from public, anon, authenticated;
 
 -- ---------- أوامر اللوحة ----------
 -- إنشاء حملة: items = [{phone, name, body, variant}]
-create or replace function public.camp_create(p_title text, p_items jsonb) returns jsonb
+drop function if exists public.camp_create(text, jsonb);
+create or replace function public.camp_create(p_title text, p_items jsonb, p_server text default '') returns jsonb
 language plpgsql security definer set search_path = public, private as $$
 declare
   cfg private.notify_config;
@@ -159,7 +244,8 @@ begin
   n_in := jsonb_array_length(p_items);
   if n_in = 0 or n_in > 3000 then raise exception 'items must be 1..3000'; end if;
 
-  insert into public.campaigns (title) values (left(coalesce(nullif(btrim(p_title), ''), 'حملة'), 120)) returning id into cid;
+  insert into public.campaigns (title, server_id)
+  values (left(coalesce(nullif(btrim(p_title), ''), 'حملة'), 120), left(coalesce(p_server, ''), 40)) returning id into cid;
 
   with src as (
     select regexp_replace(coalesce(e->>'phone', ''), '\D', '', 'g') as phone,
@@ -170,6 +256,7 @@ begin
   ), ok as (
     select * from src
      where phone ~ '^[0-9]{10,15}$' and btrim(body) <> ''
+       and not exists (select 1 from public.contacts k where k.phone = src.phone and k.opted_out)
        -- ما نرسل لرقم وصلته رسالة حملة خلال آخر 3 أيام
        and not exists (select 1 from public.camp_queue q where q.phone = src.phone
                          and q.status in ('sent', 'sending', 'pending') and coalesce(q.sent_at, now()) > now() - interval '3 days'
@@ -225,7 +312,16 @@ begin
     'sent_today', (select count(*) from public.camp_queue where sent_at >= day_start),
     'sent_hour',  (select count(*) from public.camp_queue where sent_at >= date_trunc('hour', now())),
     'campaigns', coalesce((select jsonb_agg(x order by x.id desc) from (
-       select c.id, c.title, c.status, c.note, c.created_at,
+       select c.id, c.title, c.status, c.note, c.created_at, c.server_id,
+              -- كم واحد صار زبون (انضاف أو دفع) خلال 14 يوم من رسالته
+              (select count(distinct q2.phone) from public.camp_queue q2
+                where q2.campaign_id = c.id and q2.status = 'sent'
+                  and exists (select 1 from public.customers cu where cu.phone = q2.phone and not cu.example
+                                and (cu.created_at between q2.sent_at and q2.sent_at + interval '14 days'
+                                     or exists (select 1 from jsonb_array_elements(case when jsonb_typeof(cu.payments) = 'array' then cu.payments else '[]' end) p
+                                                 where p->>'date' ~ '^\d{4}-\d{2}-\d{2}$'
+                                                   and (p->>'date')::date between (q2.sent_at at time zone 'Asia/Riyadh')::date
+                                                                              and (q2.sent_at at time zone 'Asia/Riyadh')::date + 14)))) as converted,
               count(*) filter (where q.status = 'pending')  as pending,
               count(*) filter (where q.status = 'sending')  as sending,
               count(*) filter (where q.status = 'sent')     as sent,
@@ -259,9 +355,9 @@ begin
   return private.send_whatsapp(ph, left(p_body, 4000));
 end $$;
 
-revoke all on function public.camp_create(text, jsonb), public.camp_control(bigint, text), public.camp_overview(),
+revoke all on function public.camp_create(text, jsonb, text), public.camp_control(bigint, text), public.camp_overview(),
   public.camp_settings(jsonb), public.camp_test(text, text) from public, anon;
-grant execute on function public.camp_create(text, jsonb), public.camp_control(bigint, text), public.camp_overview(),
+grant execute on function public.camp_create(text, jsonb, text), public.camp_control(bigint, text), public.camp_overview(),
   public.camp_settings(jsonb), public.camp_test(text, text) to authenticated;
 
 -- ---------- الجدولة ----------
