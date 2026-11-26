@@ -595,7 +595,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.25 (باقات سنة و3 شهور وسنتين)';
+const APP_VERSION='1.25.1 (باقات سنة و3 شهور وسنتين)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1271,7 +1271,7 @@ const isEstimated=p=>p.kind==='panel'&&!(Number(p.amount)>0);
 function payAmount(p,c){if(Number(p.amount)>0)return Number(p.amount);if(p.kind==='panel')return amountFor(p.pkg||c.pkg,c.screen,c.serverId);return 0;}
 function payCredits(p,c){if(p.kind==='reward')return 0;if(p.credits!==undefined&&p.credits!==null&&p.credits!=='')return Number(p.credits)||0;return creditsFor(p.pkg||c.pkg,c.serverId);}
 const payCost=(p,c)=>payCredits(p,c)*creditCost(c.serverId);
-function feeFor(pid,screen){/* yearly screen fee */const y={'12m':1,'15m':1,'24m':2}[pid]||0;return isPaidScreen(screen)?y*(Number(settings.screenFee)||0):0}
+function feeFor(pid,screen){/* yearly app activation fee (LG / Samsung), only on the yearly package */return isPaidScreen(screen)&&pid==='12m'?(Number(settings.screenFee)||0):0}
 function amountFor(pid,screen,sid){return priceOf(pid,sid)+feeFor(pid,screen)}
 function amountHint(){
   const el=$('#h_amount');if(!el)return;const pid=$('#f_pkg').value,sc=$('#f_screen').value,sid=$('#f_server').value;
