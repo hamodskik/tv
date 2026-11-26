@@ -595,14 +595,16 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.24 (حاسبة الكريدت)';
+const APP_VERSION='1.25 (باقات سنة و3 شهور وسنتين)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
   {id:'1m',label:'شهر',months:1},
   {id:'3m',label:'3 شهور',months:3},
   {id:'6m',label:'6 شهور',months:6},
-  {id:'12m',label:'سنة',months:12}
+  {id:'12m',label:'سنة',months:12},
+  {id:'15m',label:'سنة و3 شهور',months:15},
+  {id:'24m',label:'سنتين',months:24}
 ];
 const SCREENS=[{id:'android',label:'أندرويد / TV Box',app:'ibo'},{id:'lg',label:'شاشة LG',app:'ibo'},{id:'samsung',label:'شاشة سامسونج',app:'ibo'},
   {id:'iphone',label:'آيفون / آيباد',app:'smarters'},{id:'phone',label:'جوال أندرويد',app:'smarters'},{id:'pc',label:'كمبيوتر',app:'smarters'},{id:'other',label:'جهاز آخر',app:'other'}];
@@ -618,7 +620,7 @@ const isIbo=c=>(c.app||'ibo')==='ibo';
 const screenLabel=id=>(SCREENS.find(s=>s.id===id)||{label:'—'}).label;
 const isPaidScreen=id=>id==='lg'||id==='samsung';
 const pkgLabel=id=>(PKGS.find(p=>p.id===id)||{label:id||'—'}).label;
-const DEFAULTS={store:'عالم محمد تيفي',server:'سيرفر فولتشر',payLink:'',cc:'966',currency:'ر.س',screenFee:35,tone:'friendly',templates:{},prices:{trial:0,'1m':0,'3m':0,'6m':0,'12m':0}};
+const DEFAULTS={store:'عالم محمد تيفي',server:'سيرفر فولتشر',payLink:'',cc:'966',currency:'ر.س',screenFee:35,tone:'friendly',templates:{},prices:{trial:0,'1m':0,'3m':0,'6m':0,'12m':0,'15m':0,'24m':0}};
 let settings=JSON.parse(JSON.stringify(DEFAULTS));
 
 /* ---------- dates ---------- */
@@ -1107,7 +1109,7 @@ function renderDetail(force){
 }
 
 /* ---------- panel lines: create & renew from the dashboard (spends credits, owner only) ---------- */
-const pkgFromDays=d=>d==null?'12m':d<=2?'trial':d<=45?'1m':d<=120?'3m':d<=240?'6m':'12m';
+const pkgFromDays=d=>d==null?'12m':d<=2?'trial':d<=45?'1m':d<=120?'3m':d<=240?'6m':d<=400?'12m':d<=600?'15m':'24m';
 const panelFor=sid=>panels.find(p=>p.id===sid&&p.has_key&&Array.isArray(p.packages)&&p.packages.length);
 function panelPkgs(p,{trial=true}={}){return (p?.packages||[]).filter(x=>trial||!(x.is_trial===true||x.is_trial==='true'))
   .sort((a,b)=>(Number(a.is_trial===true)-Number(b.is_trial===true))||(Number(a.duration_days)-Number(b.duration_days))||String(a.name).localeCompare(String(b.name)));}
@@ -1260,7 +1262,7 @@ function sendOnlyFix(t){
 }
 function priceOf(pid,sid){return Number(serverOf(sid)?.prices?.[pid]?.p)||0}
 /* ---------- profit: revenue minus the credits each subscription costs ---------- */
-const DEFAULT_CREDITS={trial:0,'1m':2,'3m':2,'6m':3,'12m':5};
+const DEFAULT_CREDITS={trial:0,'1m':2,'3m':2,'6m':3,'12m':5,'15m':6,'24m':8};
 function creditsFor(pkg,sid){const v=serverOf(sid)?.prices?.[pkg]?.cr;return v===undefined||v===null||v===''?(DEFAULT_CREDITS[pkg]??0):Number(v)||0;}
 const creditCost=sid=>Number(serverOf(sid)?.creditCost)||0;
 const hasCostSetup=()=>getServers().some(s=>Number(s.creditCost)>0);
@@ -1269,7 +1271,7 @@ const isEstimated=p=>p.kind==='panel'&&!(Number(p.amount)>0);
 function payAmount(p,c){if(Number(p.amount)>0)return Number(p.amount);if(p.kind==='panel')return amountFor(p.pkg||c.pkg,c.screen,c.serverId);return 0;}
 function payCredits(p,c){if(p.kind==='reward')return 0;if(p.credits!==undefined&&p.credits!==null&&p.credits!=='')return Number(p.credits)||0;return creditsFor(p.pkg||c.pkg,c.serverId);}
 const payCost=(p,c)=>payCredits(p,c)*creditCost(c.serverId);
-function feeFor(pid,screen){/* yearly screen fee */return isPaidScreen(screen)&&pid==='12m'?(Number(settings.screenFee)||0):0}
+function feeFor(pid,screen){/* yearly screen fee */const y={'12m':1,'15m':1,'24m':2}[pid]||0;return isPaidScreen(screen)?y*(Number(settings.screenFee)||0):0}
 function amountFor(pid,screen,sid){return priceOf(pid,sid)+feeFor(pid,screen)}
 function amountHint(){
   const el=$('#h_amount');if(!el)return;const pid=$('#f_pkg').value,sc=$('#f_screen').value,sid=$('#f_server').value;

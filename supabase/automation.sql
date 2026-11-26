@@ -94,7 +94,8 @@ $$;
 create or replace function private.pkg_label(p text) returns text
 language sql immutable as $$
   select case p when 'trial' then 'تجربة 24 ساعة' when '1m' then 'شهر' when '3m' then '3 شهور'
-    when '6m' then '6 شهور' when '12m' then 'سنة' else coalesce(p, '—') end
+    when '6m' then '6 شهور' when '12m' then 'سنة' when '15m' then 'سنة و3 شهور' when '24m' then 'سنتين'
+    else coalesce(p, '—') end
 $$;
 
 -- يعبي متغيرات القالب، ويشيل سطر رابط الدفع أو بيانات الدخول لو فاضي

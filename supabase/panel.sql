@@ -85,7 +85,8 @@ end $$;
 create or replace function private.pkg_from_days(d int) returns text
 language sql immutable as $$
   select case when d is null then '12m' when d <= 2 then 'trial' when d <= 45 then '1m'
-              when d <= 120 then '3m' when d <= 240 then '6m' else '12m' end
+              when d <= 120 then '3m' when d <= 240 then '6m' when d <= 400 then '12m'
+              when d <= 600 then '15m' else '24m' end
 $$;
 
 create or replace function private.panel_get(p_base text, p_key text, p_path text) returns extensions.http_response

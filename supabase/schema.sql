@@ -42,7 +42,7 @@ create table if not exists public.customers (
   mac           text not null default '' check (char_length(mac) <= 17),
   device_key    text not null default '' check (char_length(device_key) <= 40),
   screen        text not null default 'android',
-  pkg           text not null default '12m' check (pkg in ('trial', '1m', '3m', '6m', '12m')),
+  pkg           text not null default '12m',
   start_date    date not null,
   end_date      date not null,
   notes         text not null default '' check (char_length(notes) <= 2000),
@@ -68,6 +68,10 @@ alter table public.customers drop constraint if exists customers_line_user_len;
 alter table public.customers add  constraint customers_line_user_len check (char_length(line_user) <= 100);
 alter table public.customers drop constraint if exists customers_line_pass_len;
 alter table public.customers add  constraint customers_line_pass_len check (char_length(line_pass) <= 100);
+
+-- ---------- تحديث 5: باقات سنة و3 شهور وسنتين ----------
+alter table public.customers drop constraint if exists customers_pkg_check;
+alter table public.customers add  constraint customers_pkg_check check (pkg in ('trial', '1m', '3m', '6m', '12m', '15m', '24m'));
 
 -- ---------- تحديث 3: أكثر من سيرفر ----------
 alter table public.customers add column if not exists server_id text not null default '';
