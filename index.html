@@ -358,7 +358,7 @@ a.btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none}
     <div class="tools">
       <label class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="ابحث بالاسم أو الجوال أو الـ MAC أو اليوزر" autocomplete="off">
+        <input id="q" type="search" placeholder="ابحث بالاسم أو الجوال أو الـ MAC أو اليوزر أو الباسورد" autocomplete="off">
       </label>
       <div class="chips" id="chips"></div>
     </div>
@@ -595,7 +595,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.22 (التجارب المجانية)';
+const APP_VERSION='1.23 (البحث بالباسورد)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1012,6 +1012,7 @@ function renderList(){
     if(String(c.name||'').toLowerCase().includes(q))return true;
     if(String(c.notes||'').toLowerCase().includes(q))return true;
     if(q.length>=3&&String(c.lineUser||'').toLowerCase().includes(q))return true;
+    if(q.length>=3&&String(c.linePass||'').toLowerCase().includes(q))return true;
     if(qd.length>=3&&String(c.phone||'').includes(qd.replace(/^0/,'')))return true;
     if(qh.length>=2&&String(c.mac||'').replace(/:/g,'').toLowerCase().includes(qh))return true;
     return false;
@@ -1975,7 +1976,7 @@ function ago(ts){if(!ts)return 'ما صارت';const m=Math.round((Date.now()-ne
 async function loadPanel(){
   try{
     const {data,error}=await sb.rpc('get_panels');if(error)throw error;panels=data||[];panelReady=true;
-    if(panels.length){panelLines=await fetchAll(()=>sb.from('panel_lines').select('panel_id,line_id,username,fullname,expires_at,enabled,banned,is_trial,phone_found,customer_id,playlist_host,active_connections,max_connections,synced_at').order('panel_id',{ascending:true}).order('line_id',{ascending:true}));}
+    if(panels.length){panelLines=await fetchAll(()=>sb.from('panel_lines').select('panel_id,line_id,username,password,fullname,expires_at,enabled,banned,is_trial,phone_found,customer_id,playlist_host,active_connections,max_connections,synced_at').order('panel_id',{ascending:true}).order('line_id',{ascending:true}));}
     else panelLines=[];
   }catch(e){panels=[];panelLines=[];panelReady=false}
 }
@@ -2117,7 +2118,7 @@ function renderPanelLines(){
   if(!$('#plq')||!box.contains($('#plq'))){
     box.innerHTML=`<h2><span id="plTitle"></span> <span class="count" id="plCount"></span></h2>
       <span class="hint" id="plHint">اربط كل خط بزبونه (باليوزر)، أو استورده كزبون جديد. بعدها تاريخه وجواله يتحدّثون لحالهم من البانل. المنتهية تفيدك لحملات "وحشتنا".</span>
-      <div class="tools"><label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="plq" type="search" placeholder="ابحث في كل الخطوط باليوزر أو الاسم أو الجوال" autocomplete="off"></label>
+      <div class="tools"><label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="plq" type="search" placeholder="ابحث باليوزر أو الباسورد أو الاسم أو الجوال" autocomplete="off"></label>
         <div id="plTools"></div></div>
       <div id="plResults"></div>`;
     $('#plq').value=plQuery;
@@ -2129,7 +2130,8 @@ function renderPanelResults(){
   const unlinked=panelLines.filter(l=>!l.customer_id);
   const FL={active:lineActive,expired:l=>!lineActive(l),all:()=>true};
   const q=toLatin(plQuery.trim()).toLowerCase(),qd=q.replace(/\D/g,'');
-  const match=l=>l.username.toLowerCase().includes(q)||l.fullname.toLowerCase().includes(q)||(qd.length>=4&&(l.phone_found||'').includes(qd.replace(/^0/,'')));
+  const byPass=l=>q.length>=3&&String(l.password||'').toLowerCase().includes(q);
+  const match=l=>l.username.toLowerCase().includes(q)||byPass(l)||l.fullname.toLowerCase().includes(q)||(qd.length>=4&&(l.phone_found||'').includes(qd.replace(/^0/,'')));
   const list=(q?panelLines.filter(match):unlinked.filter(FL[plFilter]||lineActive))
     .sort((a,b)=>(a.customer_id?1:0)-(b.customer_id?1:0)||String(b.expires_at||'9').localeCompare(String(a.expires_at||'9')));
   $('#plTitle').textContent=q?'نتائج البحث في كل خطوط البانل':'خطوط ما هي مربوطة بزبون';
@@ -2146,7 +2148,7 @@ function renderPanelResults(){
   res.innerHTML=list.length?`<div class="rows">${list.slice(0,plShow).map(l=>{const key=l.panel_id+':'+l.line_id;const e=lineEnd(l);const d=e?diffDays(today(),e):null;const lc=l.customer_id?customers.find(c=>c.id===l.customer_id):null;
       const waNum=l.phone_found||(/^[1-9][0-9]{10,14}$/.test(l.username)?l.username:'');
       return `<div class="pl-row"><div style="min-width:0"><div class="u"><span class="mono">${esc(l.username)}</span><button class="copy" type="button" data-act="copy" data-v="${esc(l.username)}" title="انسخ اليوزر">نسخ</button>${waNum?`<a class="copy" href="https://wa.me/${esc(waNum)}" target="_blank" rel="noopener" title="${l.phone_found?'افتح محادثته في واتساب':'اليوزر شكله رقم جوال، جرّب تفتحه في واتساب'}" style="text-decoration:none;color:var(--wa)">واتساب${l.phone_found?'':'؟'}</a>`:''}${l.fullname?`<span>${esc(l.fullname)}</span>`:''}${l.is_trial?'<span class="tag">تجربة</span>':''}${l.banned?'<span class="tag">محظور</span>':!l.enabled?'<span class="tag">موقوف</span>':''}</div>
-        <div class="meta">${l.phone_found?`<span>📱 <span class="mono">+${esc(l.phone_found)}</span></span>`:''}${panels.length>1?`<span>${esc(serverName(l.panel_id))}</span>`:''}${e?'':'<span>يبدأ مع أول تشغيل</span>'}</div></div>
+        <div class="meta">${q&&byPass(l)?`<span>🔑 الباسورد: <span class="mono">${esc(l.password)}</span></span>`:''}${l.phone_found?`<span>📱 <span class="mono">+${esc(l.phone_found)}</span></span>`:''}${panels.length>1?`<span>${esc(serverName(l.panel_id))}</span>`:''}${e?'':'<span>يبدأ مع أول تشغيل</span>'}</div></div>
         ${d===null?'<span></span>':pill(d)}
         ${lc?`<div class="linkbox"><span class="tag" style="background:var(--ok-soft);color:var(--ok)">🔗 مربوط بـ ${esc(lc.name)}</span><button class="btn sm ghost" type="button" data-act="open" data-id="${esc(lc.id)}">افتح الزبون</button></div>`
         :canWrite?`<div class="linkbox">${canDelete?`<button class="btn sm" type="button" data-act="plImport" data-sid="${esc(l.panel_id)}" data-line="${l.line_id}">⬇️ استورد كزبون جديد</button>`:''}<button class="btn sm ghost" type="button" data-act="plLinkOpen" data-key="${esc(key)}">🔗 ربط بزبون موجود</button>
