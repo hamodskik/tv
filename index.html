@@ -595,7 +595,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toLatin=s=>String(s??'').replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776);
 
-const APP_VERSION='1.23 (البحث بالباسورد)';
+const APP_VERSION='1.24 (حاسبة الكريدت)';
 /* ---------- packages & settings ---------- */
 const PKGS=[
   {id:'trial',label:'تجربة 24 ساعة',days:1},
@@ -1508,6 +1508,7 @@ document.addEventListener('change',e=>{
     if(st.open==='renew'&&pk&&!st.amtTouched)st.amt=String(amountFor(pkgFromDays(Number(pk.duration_days)),c.screen,c.serverId)||'');renderDetail(true);}
 });
 document.addEventListener('input',e=>{
+  if(e.target.closest&&e.target.closest('#srvList .srv')&&['creditCost','bPaid','bCr'].includes(e.target.dataset.f)||e.target.closest?.('#srvList .srv')&&e.target.dataset.k==='cr'){srvCostInput(e.target);}
   if(['cp_offer','cp_deadline','cp_noname','cp_text','cp_paste','cp_test','cp_rot'].includes(e.target.id)){campInput(e.target);return}
   if(e.target.id==='ct_q'){renderContactsList();return}
   if(['of_price','of_pct','of_months'].includes(e.target.id)){cp.of[{of_price:'price',of_pct:'pct',of_months:'months'}[e.target.id]]=e.target.value;clearTimeout(cpInT);cpInT=setTimeout(()=>{campSave();renderCamp();},250);return}
@@ -1597,6 +1598,14 @@ $('#setForm').addEventListener('submit',async e=>{
 
 /* ---------- servers & support editor (settings) ---------- */
 let setSrv=[],setDefSrv='',setSup=[],setApps=[];
+function ccHint(cc,yr){cc=Number(toLatin(String(cc??'')).replace(/[^\d.]/g,''))||0;yr=Number(yr)||0;const cur=settings.currency||'';
+  return cc?`يعني السنة (${yr} كريدت) تكلفك ${Math.round(cc*yr*100)/100} ${cur}. الربح = سعر الزبون − التكلفة.`:'عشان ينحسب صافي الربح: الربح = سعر الزبون − (الكريدت × هالتكلفة)';}
+function srvCostInput(el){
+  const box=el.closest('.srv');if(!box)return;const f=el.dataset.f||el.dataset.k;
+  const num=k=>Number(toLatin(box.querySelector(`[data-f=${k}]`).value).replace(/[^\d.]/g,''))||0;
+  if(f==='bPaid'||f==='bCr'){const pd=num('bPaid'),cr=num('bCr');if(pd&&cr)box.querySelector('[data-f=creditCost]').value=Math.round(pd/cr*100)/100;}
+  box.querySelector('[data-f=ccHint]').textContent=ccHint(box.querySelector('[data-f=creditCost]').value,toLatin(box.querySelector('[data-p="12m"][data-k=cr]').value).replace(/\D/g,''));
+}
 function renderSrvEditor(){
   const cur=esc(settings.currency||'');
   $('#srvList').innerHTML=setSrv.map((s,i)=>`<div class="srv" data-i="${i}">
@@ -1604,7 +1613,9 @@ function renderSrvEditor(){
       ${setSrv.length>1?`<button class="btn sm danger" type="button" data-act="srvDel" data-i="${i}">حذف السيرفر</button>`:''}</div>
     <div class="grid2"><div class="field"><label>اسم السيرفر</label><input data-f="name" value="${esc(s.name)}" placeholder="مثلاً: سيرفر أروما"></div>
       <div class="field"><label>رابط السيرفر (لمستخدمين Smarters)</label><input data-f="url" class="ltr" value="${esc(s.url||'')}" placeholder="http://example.com:8080"></div></div>
-    <div class="field"><label>تكلفة الكريدت الواحد عليك (${cur})</label><input data-f="creditCost" class="ltr num" inputmode="decimal" value="${s.creditCost||''}" placeholder="مثلاً: 20"><span class="hint">عشان ينحسب صافي الربح: الربح = سعر الزبون − (الكريدت × هالتكلفة)</span></div>
+    <div class="field"><label>تكلفة الكريدت <b>الواحد</b> عليك (${cur})</label><input data-f="creditCost" class="ltr num" inputmode="decimal" value="${s.creditCost||''}" placeholder="مثلاً: 4">
+      <span class="hint">ما تعرفها؟ احسبها: دفعت <input data-f="bPaid" class="ltr num" inputmode="decimal" style="width:80px;display:inline-block" placeholder="500"> ${cur} وأخذت <input data-f="bCr" class="ltr num" inputmode="numeric" style="width:70px;display:inline-block" placeholder="125"> كريدت</span>
+      <span class="hint" data-f="ccHint">${ccHint(s.creditCost,s.prices?.['12m']?.cr??DEFAULT_CREDITS['12m'])}</span></div>
     <table class="ptable"><thead><tr><th>الباقة</th><th>السعر (${cur})</th><th>أقل سعر</th><th>الكريدت</th></tr></thead><tbody>
       ${PKGS.map(p=>`<tr><td>${p.label}</td><td><input data-p="${p.id}" data-k="p" inputmode="decimal" value="${s.prices?.[p.id]?.p||''}" aria-label="سعر ${p.label}"></td><td><input data-p="${p.id}" data-k="min" inputmode="decimal" value="${s.prices?.[p.id]?.min||''}" aria-label="أقل سعر ${p.label}"></td><td><input data-p="${p.id}" data-k="cr" inputmode="numeric" value="${s.prices?.[p.id]?.cr??DEFAULT_CREDITS[p.id]??''}" aria-label="كريدت ${p.label}"></td></tr>`).join('')}
     </tbody></table></div>`).join('');
